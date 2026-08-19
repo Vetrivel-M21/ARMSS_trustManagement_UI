@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { fetchAPI, assetUrl } from '../api/client';
+import { useToast } from '../context/ToastContext';
 import type { BankAccount, BankTransaction } from '../types';
 import { ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye } from 'lucide-react';
 import { Button } from '../components/ui/Button';
@@ -8,6 +9,7 @@ import { Button } from '../components/ui/Button';
 const fmt = (n: number) => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
 export const BankTransactions: React.FC = () => {
+  const toast = useToast();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [selectedId, setSelectedId] = useState<number>(0);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
@@ -30,6 +32,7 @@ export const BankTransactions: React.FC = () => {
     setIsLoading(true);
     const res = await fetchAPI<BankTransaction[]>(`/bank-accounts/${id}/transactions`);
     if (res.success && res.data) setTransactions(res.data);
+    else toast.error(res.error?.message || 'Failed to load bank transactions');
     setIsLoading(false);
   };
 

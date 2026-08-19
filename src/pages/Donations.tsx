@@ -9,6 +9,7 @@ import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import { CASH_DENOMINATIONS } from '../constants';
 import type { Donation, Donor, Scheme, BankAccount, Voucher } from '../types';
+import { isPositiveAmount, isWithinLength, hasErrors } from '../utils/validation';
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   BIRTHDAY: 'Birthday',
@@ -61,6 +62,8 @@ export const Donations: React.FC = () => {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const [formData, setFormData] = useState(emptyDonationForm());
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [submitting, setSubmitting] = useState(false);
   // Once the donor manually edits Purpose, stop auto-overwriting it from
   // scheme/food-meal selection — otherwise a custom purpose typed before
   // re-touching those dropdowns gets silently discarded.
@@ -155,8 +158,22 @@ export const Donations: React.FC = () => {
 
   const denomSum = Object.entries(denominations).reduce((acc, [val, qty]) => acc + Number(val) * Number(qty), 0);
 
+  const validateForm = (): Record<string, string | undefined> => ({
+    amount: isPositiveAmount(formData.amount, 'Donation amount'),
+    purpose: isWithinLength(formData.purpose, 255, 'Purpose details'),
+    event_person_name: isWithinLength(formData.event_person_name, 100, 'Event person name'),
+    relationship_to_donor: isWithinLength(formData.relationship_to_donor, 100, 'Relationship to donor'),
+    reference_number: isWithinLength(formData.reference_number, 255, 'Reference number'),
+  });
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const fieldErrors = validateForm();
+    if (hasErrors(fieldErrors)) {
+      setErrors(fieldErrors);
+      return;
+    }
 
     if (!formData.donor_id) {
       toast.error('Please select a donor');
@@ -168,6 +185,7 @@ export const Donations: React.FC = () => {
       return;
     }
 
+    setSubmitting(true);
     const denomList = Object.entries(denominations)
       .filter(([_, qty]) => qty > 0)
       .map(([val, qty]) => ({ value: Number(val), quantity: Number(qty) }));
@@ -186,10 +204,13 @@ export const Donations: React.FC = () => {
       body: JSON.stringify(payload),
     });
 
+    setSubmitting(false);
+
     if (res.success && res.data) {
       setShowAddModal(false);
       setFormData(emptyDonationForm());
       setPurposeTouched(false);
+      setErrors({});
       setDenominations(Object.fromEntries(CASH_DENOMINATIONS.map((v) => [v, 0])));
       setActiveVoucher(res.data.voucher);
       loadInitialData();
@@ -216,6 +237,7 @@ export const Donations: React.FC = () => {
             onClick={() => {
               setFormData(emptyDonationForm());
               setPurposeTouched(false);
+              setErrors({});
               setShowAddModal(true);
             }}
           >
@@ -337,21 +359,25 @@ export const Donations: React.FC = () => {
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Event Person Name</label>
                       <input
                         type="text"
+                        maxLength={100}
                         placeholder="e.g. Arun Kumar"
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
                         value={formData.event_person_name}
-                        onChange={(e) => setFormData({ ...formData, event_person_name: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, event_person_name: e.target.value }); setErrors((prev) => ({ ...prev, event_person_name: undefined })); }}
                       />
+                      {errors.event_person_name && <p className="text-xs text-rose-600 font-medium mt-1">{errors.event_person_name}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Relationship to Donor</label>
                       <input
                         type="text"
+                        maxLength={100}
                         placeholder="e.g. Son, Spouse, Self"
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
                         value={formData.relationship_to_donor}
-                        onChange={(e) => setFormData({ ...formData, relationship_to_donor: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, relationship_to_donor: e.target.value }); setErrors((prev) => ({ ...prev, relationship_to_donor: undefined })); }}
                       />
+                      {errors.relationship_to_donor && <p className="text-xs text-rose-600 font-medium mt-1">{errors.relationship_to_donor}</p>}
                     </div>
                   </div>
                 )}
@@ -437,13 +463,15 @@ export const Donations: React.FC = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
                     required
                     disabled={amountLocked}
                     placeholder="5000"
                     className={`w-full px-3 py-2 border rounded-lg font-mono font-bold focus:ring-2 focus:ring-emerald-500 ${amountLocked ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ''}`}
                     value={formData.amount || ''}
-                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => { setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 }); setErrors((prev) => ({ ...prev, amount: undefined })); }}
                   />
+                  {errors.amount && <p className="text-xs text-rose-600 font-medium mt-1">{errors.amount}</p>}
                 </div>
               </div>
 
@@ -471,11 +499,13 @@ export const Donations: React.FC = () => {
                       <label className="block text-xs font-semibold text-blue-900 mb-1">Transaction/Reference No. (optional)</label>
                       <input
                         type="text"
+                        maxLength={255}
                         placeholder="UTR / Cheque No."
                         className="w-full px-3 py-2 border rounded-lg bg-white text-sm"
                         value={formData.reference_number}
-                        onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, reference_number: e.target.value }); setErrors((prev) => ({ ...prev, reference_number: undefined })); }}
                       />
+                      {errors.reference_number && <p className="text-xs text-rose-600 font-medium mt-1">{errors.reference_number}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-blue-900 mb-1">Attachment (optional)</label>
@@ -523,15 +553,17 @@ export const Donations: React.FC = () => {
                 <input
                   type="text"
                   required
+                  maxLength={255}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={formData.purpose}
-                  onChange={(e) => { setPurposeTouched(true); setFormData({ ...formData, purpose: e.target.value }); }}
+                  onChange={(e) => { setPurposeTouched(true); setFormData({ ...formData, purpose: e.target.value }); setErrors((prev) => ({ ...prev, purpose: undefined })); }}
                 />
+                {errors.purpose && <p className="text-xs text-rose-600 font-medium mt-1">{errors.purpose}</p>}
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Submit &amp; Issue Receipt</Button>
+                <Button type="submit" variant="primary" isLoading={submitting} disabled={submitting}>Submit &amp; Issue Receipt</Button>
               </div>
             </form>
           </div>

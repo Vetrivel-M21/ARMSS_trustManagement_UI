@@ -7,6 +7,7 @@ import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
+import { isPositiveAmount, isRequired, isWithinLength, hasErrors } from '../utils/validation';
 import type { Expense, BankAccount, ExpenseCategory, Voucher } from '../types';
 
 const emptyExpenseForm = () => ({
@@ -32,6 +33,8 @@ export const Expenses: React.FC = () => {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const [formData, setFormData] = useState(emptyExpenseForm());
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const handleAttachmentUpload = async (file: File | null) => {
     if (!file) return;
@@ -66,14 +69,28 @@ export const Expenses: React.FC = () => {
     loadData();
   }, []);
 
+  const validateForm = (): Record<string, string | undefined> => ({
+    amount: isPositiveAmount(formData.amount, 'Expense amount'),
+    category: isRequired(formData.category, 'Category'),
+    payee_name: isRequired(formData.payee_name, 'Payee/vendor name') || isWithinLength(formData.payee_name, 150, 'Payee/vendor name'),
+    description: isWithinLength(formData.description, 255, 'Description'),
+  });
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const fieldErrors = validateForm();
+    if (hasErrors(fieldErrors)) {
+      setErrors(fieldErrors);
+      return;
+    }
 
     if (formData.payment_mode === 'BANK' && !formData.bank_account_id) {
       toast.error('Please select a Bank Account for Bank Payment Mode');
       return;
     }
 
+    setSubmitting(true);
     const payload = {
       ...formData,
       bank_account_id: formData.bank_account_id ? Number(formData.bank_account_id) : undefined,
@@ -83,11 +100,13 @@ export const Expenses: React.FC = () => {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    setSubmitting(false);
 
     if (res.success && res.data) {
       setShowAddModal(false);
       setActiveVoucher(res.data.voucher);
       setFormData(emptyExpenseForm());
+      setErrors({});
       loadData();
       toast.success('Expense recorded and voucher issued.');
     } else {
@@ -171,19 +190,22 @@ export const Expenses: React.FC = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
                     required
                     placeholder="1500"
                     className="w-full px-3 py-2 border rounded-lg font-mono font-bold focus:ring-2 focus:ring-emerald-500"
                     value={formData.amount || ''}
-                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => { setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 }); setErrors((prev) => ({ ...prev, amount: undefined })); }}
                   />
+                  {errors.amount && <p className="text-xs text-rose-600 font-medium mt-1">{errors.amount}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Category *</label>
                   <select
+                    required
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, category: e.target.value }); setErrors((prev) => ({ ...prev, category: undefined })); }}
                   >
                     {categories.length === 0 ? (
                       <option value="">-- No active categories --</option>
@@ -193,6 +215,7 @@ export const Expenses: React.FC = () => {
                       ))
                     )}
                   </select>
+                  {errors.category && <p className="text-xs text-rose-600 font-medium mt-1">{errors.category}</p>}
                 </div>
               </div>
 
@@ -202,11 +225,13 @@ export const Expenses: React.FC = () => {
                   <input
                     type="text"
                     required
+                    maxLength={150}
                     placeholder="Vendor / Payee Name"
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.payee_name}
-                    onChange={(e) => setFormData({ ...formData, payee_name: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, payee_name: e.target.value }); setErrors((prev) => ({ ...prev, payee_name: undefined })); }}
                   />
+                  {errors.payee_name && <p className="text-xs text-rose-600 font-medium mt-1">{errors.payee_name}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Mode *</label>
@@ -263,15 +288,17 @@ export const Expenses: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Description / Notes</label>
                 <textarea
                   rows={2}
+                  maxLength={255}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, description: e.target.value }); setErrors((prev) => ({ ...prev, description: undefined })); }}
                 />
+                {errors.description && <p className="text-xs text-rose-600 font-medium mt-1">{errors.description}</p>}
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save & Issue Voucher</Button>
+                <Button type="submit" variant="primary" isLoading={submitting} disabled={submitting || categories.length === 0}>Save & Issue Voucher</Button>
               </div>
             </form>
           </div>

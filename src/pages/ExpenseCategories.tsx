@@ -5,6 +5,7 @@ import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import type { ExpenseCategory } from '../types';
 import { Plus, RefreshCw, Tag } from 'lucide-react';
+import { isValidCategoryName } from '../utils/validation';
 
 export const ExpenseCategories: React.FC = () => {
   const toast = useToast();
@@ -15,6 +16,10 @@ export const ExpenseCategories: React.FC = () => {
 
   const [newName, setNewName] = useState('');
   const [editData, setEditData] = useState({ name: '', is_active: true });
+  const [newNameError, setNewNameError] = useState<string | undefined>(undefined);
+  const [editNameError, setEditNameError] = useState<string | undefined>(undefined);
+  const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   const loadCategories = async () => {
     setIsLoading(true);
@@ -31,10 +36,20 @@ export const ExpenseCategories: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const err = isValidCategoryName(newName);
+    if (err) {
+      setNewNameError(err);
+      return;
+    }
+
+    setCreating(true);
     const res = await fetchAPI<ExpenseCategory>('/expense-categories', { method: 'POST', body: JSON.stringify({ name: newName }) });
+    setCreating(false);
     if (res.success) {
       setShowAddModal(false);
       setNewName('');
+      setNewNameError(undefined);
       toast.success('Expense category created.');
       loadCategories();
     } else {
@@ -45,17 +60,28 @@ export const ExpenseCategories: React.FC = () => {
   const openEdit = (cat: ExpenseCategory) => {
     setEditTarget(cat);
     setEditData({ name: cat.name, is_active: cat.is_active });
+    setEditNameError(undefined);
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTarget) return;
+
+    const err = isValidCategoryName(editData.name);
+    if (err) {
+      setEditNameError(err);
+      return;
+    }
+
+    setUpdating(true);
     const res = await fetchAPI<ExpenseCategory>(`/expense-categories/${editTarget.id}`, {
       method: 'PUT',
       body: JSON.stringify({ name: editData.name, is_active: editData.is_active }),
     });
+    setUpdating(false);
     if (res.success) {
       setEditTarget(null);
+      setEditNameError(undefined);
       toast.success('Expense category updated.');
       loadCategories();
     } else {
@@ -122,13 +148,15 @@ export const ExpenseCategories: React.FC = () => {
             <form onSubmit={handleCreate} className="space-y-3 text-sm">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Category Name *</label>
-                <input type="text" required autoFocus placeholder="e.g. OFFICE_SUPPLIES"
+                <input type="text" required autoFocus maxLength={50} placeholder="e.g. OFFICE_SUPPLIES"
+                  pattern="[A-Z][A-Z0-9_]*" title="Uppercase letters, numbers, and underscores only"
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={newName} onChange={(e) => setNewName(e.target.value)} />
+                  value={newName} onChange={(e) => { setNewName(e.target.value); setNewNameError(undefined); }} />
+                {newNameError && <p className="text-xs text-rose-600 font-medium mt-1">{newNameError}</p>}
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Create Category</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setNewNameError(undefined); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={creating} disabled={creating}>Create Category</Button>
               </div>
             </form>
           </div>
@@ -142,8 +170,11 @@ export const ExpenseCategories: React.FC = () => {
             <form onSubmit={handleUpdate} className="space-y-3 text-sm">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Category Name</label>
-                <input type="text" required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
+                <input type="text" required maxLength={50}
+                  pattern="[A-Z][A-Z0-9_]*" title="Uppercase letters, numbers, and underscores only"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  value={editData.name} onChange={(e) => { setEditData({ ...editData, name: e.target.value }); setEditNameError(undefined); }} />
+                {editNameError && <p className="text-xs text-rose-600 font-medium mt-1">{editNameError}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
@@ -155,8 +186,8 @@ export const ExpenseCategories: React.FC = () => {
               </div>
               <p className="text-[11px] text-slate-400">Deactivating hides this category from the expense-creation form — existing expenses already recorded against it are unaffected.</p>
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save Changes</Button>
+                <Button type="button" variant="outline" onClick={() => { setEditTarget(null); setEditNameError(undefined); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={updating} disabled={updating}>Save Changes</Button>
               </div>
             </form>
           </div>

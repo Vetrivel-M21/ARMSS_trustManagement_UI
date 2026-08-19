@@ -4,6 +4,8 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { RefreshCw, Users, Calendar, Cake, Gift } from 'lucide-react';
 import { fetchAPI } from '../api/client';
+import { useToast } from '../context/ToastContext';
+import { isValidYear } from '../utils/validation';
 import type { YoYComparisonItem, BirthdayItem, YoYMonthDonorItem } from '../types';
 
 const MONTH_NAMES = [
@@ -28,9 +30,11 @@ type DonorSummaryTab = 'YOY_COMPARISON' | 'BIRTHDAYS';
 
 export const DonorSummary: React.FC = () => {
   const navigate = useNavigate();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<DonorSummaryTab>('YOY_COMPARISON');
   const [targetMonth, setTargetMonth] = useState(() => new Date().getMonth() + 1);
   const [yoyYear, setYoyYear] = useState(() => new Date().getFullYear());
+  const yoyYearError = isValidYear(yoyYear, 2000, new Date().getFullYear());
 
   const [yoyData, setYoyData] = useState<YoYComparisonItem[]>([]);
   const [birthdayData, setBirthdayData] = useState<BirthdayItem[]>([]);
@@ -47,12 +51,18 @@ export const DonorSummary: React.FC = () => {
 
   const loadData = async () => {
     setIsLoading(true);
-    const [yoyRes, birthdayRes] = await Promise.all([
-      fetchAPI<any>(`/reports/yoy-comparison?year=${yoyYear}`),
-      fetchAPI<any>(`/reports/birthdays?month=${targetMonth}`),
-    ]);
-    if (yoyRes.success && yoyRes.data) setYoyData(yoyRes.data.months || []);
+    const requests: Promise<any>[] = [fetchAPI<any>(`/reports/birthdays?month=${targetMonth}`)];
+    if (!yoyYearError) requests.unshift(fetchAPI<any>(`/reports/yoy-comparison?year=${yoyYear}`));
+    const results = await Promise.all(requests);
+    const birthdayRes = results[results.length - 1];
+    const yoyRes = yoyYearError ? null : results[0];
+
+    if (yoyRes) {
+      if (yoyRes.success && yoyRes.data) setYoyData(yoyRes.data.months || []);
+      else if (!yoyRes.success) toast.error(yoyRes.error?.message || 'Failed to load year-over-year comparison');
+    }
     if (birthdayRes.success && birthdayRes.data) setBirthdayData(birthdayRes.data.birthdays || []);
+    else if (!birthdayRes.success) toast.error(birthdayRes.error?.message || 'Failed to load birthday calendar');
     setIsLoading(false);
   };
 
@@ -86,6 +96,7 @@ export const DonorSummary: React.FC = () => {
     setIsLoadingDonors(true);
     const res = await fetchAPI<any>(`/reports/yoy-comparison/donors?month=${month}&year=${yoyYear}`);
     if (res.success && res.data) setYoyMonthDonors(res.data);
+    else toast.error(res.error?.message || 'Failed to load donor list for this month');
     setIsLoadingDonors(false);
   };
 
@@ -121,12 +132,17 @@ export const DonorSummary: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold text-slate-600">Comparison Year:</span>
-            <input
-              type="number"
-              className="w-28 px-3 py-1.5 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
-              value={yoyYear}
-              onChange={(e) => setYoyYear(Number(e.target.value) || yoyYear)}
-            />
+            <div>
+              <input
+                type="number"
+                min={2000}
+                max={new Date().getFullYear()}
+                className="w-28 px-3 py-1.5 border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
+                value={yoyYear}
+                onChange={(e) => setYoyYear(Number(e.target.value))}
+              />
+              {yoyYearError && <p className="text-[11px] text-rose-600 font-medium mt-1">{yoyYearError}</p>}
+            </div>
             <span className="text-xs text-slate-400">vs {yoyYear - 1}</span>
           </div>
 

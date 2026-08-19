@@ -6,6 +6,7 @@ import { fetchAPI } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { uploadFile } from '../utils/upload';
+import { isPositiveAmount, isNonNegativeAmount, isWithinLength, hasErrors } from '../utils/validation';
 import type { BankAccount, BankClosingStatus, BankDaySummary, BankBreakdownRow } from '../types';
 import { Landmark, Plus, RefreshCw, ArrowRightLeft, Lock, Unlock, CheckCircle2, AlertCircle, Upload, Check, Eye } from 'lucide-react';
 
@@ -38,6 +39,14 @@ export const BankSummary: React.FC = () => {
   });
   const [uploadingQR, setUploadingQR] = useState(false);
   const [ifscLookupLoading, setIfscLookupLoading] = useState(false);
+  const [addAccountErrors, setAddAccountErrors] = useState<Record<string, string | undefined>>({});
+  const [addAccountSubmitting, setAddAccountSubmitting] = useState(false);
+  const [transferErrors, setTransferErrors] = useState<Record<string, string | undefined>>({});
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [closingErrors, setClosingErrors] = useState<Record<number, string | undefined>>({});
+  const [closingSubmitting, setClosingSubmitting] = useState(false);
+  const [unlockReasonError, setUnlockReasonError] = useState<string | undefined>(undefined);
+  const [unlockSubmitting, setUnlockSubmitting] = useState(false);
 
   const handleQRUpload = async (file: File | null) => {
     if (!file) return;
@@ -139,10 +148,22 @@ export const BankSummary: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const fieldErrors: Record<string, string | undefined> = {
+      opening_balance: isNonNegativeAmount(formData.opening_balance, 'Opening balance'),
+    };
+    if (hasErrors(fieldErrors)) {
+      setAddAccountErrors(fieldErrors);
+      return;
+    }
+
+    setAddAccountSubmitting(true);
     const res = await fetchAPI<BankAccount>('/bank-accounts', { method: 'POST', body: JSON.stringify(formData) });
+    setAddAccountSubmitting(false);
     if (res.success) {
       setShowAddModal(false);
       setFormData({ bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '' });
+      setAddAccountErrors({});
       toast.success('Bank account added.');
       loadAll();
     } else {
@@ -160,9 +181,21 @@ export const BankSummary: React.FC = () => {
       toast.error('Source and destination accounts must be different');
       return;
     }
+
+    const fieldErrors: Record<string, string | undefined> = {
+      amount: isPositiveAmount(transferData.amount, 'Transfer amount'),
+    };
+    if (hasErrors(fieldErrors)) {
+      setTransferErrors(fieldErrors);
+      return;
+    }
+
+    setTransferSubmitting(true);
     const res = await fetchAPI<unknown>('/bank-accounts/transfer', { method: 'POST', body: JSON.stringify(transferData) });
+    setTransferSubmitting(false);
     if (res.success) {
       setShowTransferModal(false);
+      setTransferErrors({});
       toast.success('Inter-bank transfer executed successfully.');
       loadAll();
     } else {
@@ -173,18 +206,28 @@ export const BankSummary: React.FC = () => {
   const openAccounts = accounts.filter((a) => statuses[a.id]?.status !== 'CLOSED');
 
   const handleCloseAllBanks = async () => {
-    const closings = openAccounts.map((a) => ({ bank_account_id: a.id, actual_closing: parseFloat(actualInputs[a.id] ?? '') }));
-    if (closings.some((c) => isNaN(c.actual_closing))) {
-      toast.error('Enter the statement amount for every open bank account before closing.');
+    const newClosingErrors: Record<number, string | undefined> = {};
+    openAccounts.forEach((a) => {
+      const raw = actualInputs[a.id] ?? '';
+      newClosingErrors[a.id] = raw === '' ? 'Statement amount is required.' : isNonNegativeAmount(raw, 'Statement amount');
+    });
+    if (Object.values(newClosingErrors).some((v) => v !== undefined)) {
+      setClosingErrors(newClosingErrors);
+      toast.error('Enter a valid statement amount for every open bank account before closing.');
       return;
     }
+
+    const closings = openAccounts.map((a) => ({ bank_account_id: a.id, actual_closing: parseFloat(actualInputs[a.id] ?? '') }));
+    setClosingSubmitting(true);
     const res = await fetchAPI<unknown>('/bank-accounts/close-all', {
       method: 'POST',
       body: JSON.stringify({ business_date: date, closings }),
     });
+    setClosingSubmitting(false);
     if (res.success) {
       toast.success(`${closings.length} bank account(s) closed for ${date}.`);
       setShowCloseAllConfirm(false);
+      setClosingErrors({});
       loadAll();
     } else {
       toast.error(res.error?.message || 'Failed to close bank accounts for this date');
@@ -194,6 +237,14 @@ export const BankSummary: React.FC = () => {
   const handleRequestUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!unlockTarget) return;
+
+    const err = isWithinLength(unlockReason, 500, 'Reason');
+    if (err) {
+      setUnlockReasonError(err);
+      return;
+    }
+
+    setUnlockSubmitting(true);
     const res = await fetchAPI<unknown>('/unlock-requests', {
       method: 'POST',
       body: JSON.stringify({
@@ -203,10 +254,12 @@ export const BankSummary: React.FC = () => {
         reason: unlockReason,
       }),
     });
+    setUnlockSubmitting(false);
     if (res.success) {
       toast.success('Unlock request submitted for Admin review.');
       setUnlockTarget(null);
       setUnlockReason('');
+      setUnlockReasonError(undefined);
     } else {
       toast.error(res.error?.message || 'Failed to submit unlock request');
     }
@@ -425,14 +478,18 @@ export const BankSummary: React.FC = () => {
                       {isClosed ? (
                         <span className="font-mono font-semibold text-slate-800">{fmt(s?.actual_closing)}</span>
                       ) : (
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Statement amount"
-                          className="w-32 px-3 py-1.5 border border-slate-300 rounded-lg text-right font-mono text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                          value={actualInputs[a.id] ?? ''}
-                          onChange={(e) => setActualInputs({ ...actualInputs, [a.id]: e.target.value })}
-                        />
+                        <>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Statement amount"
+                            className="w-32 px-3 py-1.5 border border-slate-300 rounded-lg text-right font-mono text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                            value={actualInputs[a.id] ?? ''}
+                            onChange={(e) => { setActualInputs({ ...actualInputs, [a.id]: e.target.value }); setClosingErrors((prev) => ({ ...prev, [a.id]: undefined })); }}
+                          />
+                          {closingErrors[a.id] && <p className="text-[10px] text-rose-600 font-medium mt-1">{closingErrors[a.id]}</p>}
+                        </>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono">
@@ -525,6 +582,7 @@ export const BankSummary: React.FC = () => {
             </div>
           }
           confirmLabel="Close All Banks"
+          confirmDisabled={closingSubmitting}
           onConfirm={handleCloseAllBanks}
           onCancel={() => setShowCloseAllConfirm(false)}
         />
@@ -546,15 +604,17 @@ export const BankSummary: React.FC = () => {
                   required
                   rows={3}
                   autoFocus
+                  maxLength={500}
                   placeholder="State clear reason why this bank account's closed entry needs correction..."
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={unlockReason}
-                  onChange={(e) => setUnlockReason(e.target.value)}
+                  onChange={(e) => { setUnlockReason(e.target.value); setUnlockReasonError(undefined); }}
                 />
+                {unlockReasonError && <p className="text-xs text-rose-600 font-medium mt-1">{unlockReasonError}</p>}
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => { setUnlockTarget(null); setUnlockReason(''); }}>Cancel</Button>
-                <Button type="submit" variant="primary">Submit to Admin</Button>
+                <Button type="button" variant="outline" onClick={() => { setUnlockTarget(null); setUnlockReason(''); setUnlockReasonError(undefined); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={unlockSubmitting} disabled={unlockSubmitting}>Submit to Admin</Button>
               </div>
             </form>
           </div>
@@ -664,9 +724,10 @@ export const BankSummary: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Opening Balance (₹) *</label>
-                      <input type="number" step="0.01" required placeholder="100000"
+                      <input type="number" step="0.01" min="0" required placeholder="100000"
                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
-                        value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} />
+                        value={formData.opening_balance} onChange={(e) => { setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 }); setAddAccountErrors((prev) => ({ ...prev, opening_balance: undefined })); }} />
+                      {addAccountErrors.opening_balance && <p className="text-xs text-rose-600 font-medium mt-1">{addAccountErrors.opening_balance}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">UPI / Bank QR Code (optional)</label>
@@ -680,8 +741,8 @@ export const BankSummary: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save Bank Account</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setAddAccountErrors({}); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={addAccountSubmitting} disabled={addAccountSubmitting}>Save Bank Account</Button>
               </div>
             </form>
           </div>
@@ -721,9 +782,10 @@ export const BankSummary: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Transfer Amount (₹) *</label>
-                  <input type="number" step="0.01" required placeholder="10000"
+                  <input type="number" step="0.01" min="0.01" required placeholder="10000"
                     className="w-full px-3 py-2 border rounded-lg font-mono font-bold focus:ring-2 focus:ring-emerald-500"
-                    value={transferData.amount || ''} onChange={(e) => setTransferData({ ...transferData, amount: parseFloat(e.target.value) || 0 })} />
+                    value={transferData.amount || ''} onChange={(e) => { setTransferData({ ...transferData, amount: parseFloat(e.target.value) || 0 }); setTransferErrors((prev) => ({ ...prev, amount: undefined })); }} />
+                  {transferErrors.amount && <p className="text-xs text-rose-600 font-medium mt-1">{transferErrors.amount}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Reference No</label>
@@ -733,8 +795,8 @@ export const BankSummary: React.FC = () => {
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowTransferModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary"><CheckCircle2 className="w-4 h-4 mr-1.5" />Execute Transfer</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowTransferModal(false); setTransferErrors({}); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={transferSubmitting} disabled={transferSubmitting}><CheckCircle2 className="w-4 h-4 mr-1.5" />Execute Transfer</Button>
               </div>
             </form>
           </div>

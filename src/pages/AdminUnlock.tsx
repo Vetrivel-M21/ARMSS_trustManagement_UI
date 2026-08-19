@@ -5,6 +5,7 @@ import { Unlock, RefreshCw } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import type { UnlockRequest, AuditLog } from '../types';
+import { isWithinLength } from '../utils/validation';
 
 export const AdminUnlock: React.FC = () => {
   const toast = useToast();
@@ -17,6 +18,9 @@ export const AdminUnlock: React.FC = () => {
 
   const [dateToUnlock, setDateToUnlock] = useState(() => new Date().toISOString().split('T')[0]);
   const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | undefined>(undefined);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -36,6 +40,14 @@ export const AdminUnlock: React.FC = () => {
 
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const err = isWithinLength(reason, 500, 'Reason');
+    if (err) {
+      setReasonError(err);
+      return;
+    }
+
+    setSubmittingRequest(true);
     const res = await fetchAPI<UnlockRequest>('/unlock-requests', {
       method: 'POST',
       body: JSON.stringify({
@@ -43,10 +55,12 @@ export const AdminUnlock: React.FC = () => {
         reason,
       }),
     });
+    setSubmittingRequest(false);
 
     if (res.success) {
       setShowSubmitModal(false);
       setReason('');
+      setReasonError(undefined);
       toast.success('Unlock request submitted for Admin review.');
       loadData();
     } else {
@@ -56,10 +70,12 @@ export const AdminUnlock: React.FC = () => {
 
   const submitReview = async () => {
     if (!reviewTarget) return;
+    setSubmittingReview(true);
     const res = await fetchAPI<UnlockRequest>(`/unlock-requests/${reviewTarget.id}/review`, {
       method: 'PUT',
       body: JSON.stringify({ status: reviewTarget.status, review_notes: reviewNotes }),
     });
+    setSubmittingReview(false);
 
     if (res.success) {
       toast.success(`Unlock request ${reviewTarget.status.toLowerCase()}.`);
@@ -174,16 +190,18 @@ export const AdminUnlock: React.FC = () => {
                 <textarea
                   required
                   rows={3}
+                  maxLength={500}
                   placeholder="State clear reason why closed day needs to be unlocked for corrections..."
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+                  onChange={(e) => { setReason(e.target.value); setReasonError(undefined); }}
                 />
+                {reasonError && <p className="text-xs text-rose-600 font-medium mt-1">{reasonError}</p>}
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowSubmitModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Submit to Admin</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowSubmitModal(false); setReasonError(undefined); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={submittingRequest} disabled={submittingRequest}>Submit to Admin</Button>
               </div>
             </form>
           </div>
@@ -208,8 +226,8 @@ export const AdminUnlock: React.FC = () => {
               />
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" onClick={() => { setReviewTarget(null); setReviewNotes(''); }}>Cancel</Button>
-              <Button variant={reviewTarget.status === 'APPROVED' ? 'primary' : 'danger'} onClick={submitReview}>
+              <Button variant="outline" onClick={() => { setReviewTarget(null); setReviewNotes(''); }} disabled={submittingReview}>Cancel</Button>
+              <Button variant={reviewTarget.status === 'APPROVED' ? 'primary' : 'danger'} onClick={submitReview} isLoading={submittingReview} disabled={submittingReview}>
                 Confirm {reviewTarget.status === 'APPROVED' ? 'Approval' : 'Rejection'}
               </Button>
             </div>

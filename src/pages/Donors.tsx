@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { uploadFile, downloadFile, fetchAuthedBlobUrl } from '../utils/upload';
 import { useAuthedAsset } from '../hooks/useAuthedAsset';
 import type { Donor } from '../types';
+import { isRequired, isValidEmail, isNotFutureDate, isDateAfterOrEqual, isWithinLength, hasErrors } from '../utils/validation';
 
 const calculateAge = (dob: string): number | null => {
   if (!dob) return null;
@@ -118,6 +119,9 @@ export const Donors: React.FC = () => {
 
   const [familyMembers, setFamilyMembers] = useState<Array<{ full_name: string; relationship: string; date_of_birth: string; notes: string }>>([]);
   const [uploadingField, setUploadingField] = useState<'photo_path' | 'aadhaar_doc_path' | 'pan_doc_path' | null>(null);
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [familyErrors, setFamilyErrors] = useState<Record<number, { full_name?: string; date_of_birth?: string }>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const handleDocUpload = async (field: 'photo_path' | 'aadhaar_doc_path' | 'pan_doc_path', file: File | null) => {
     if (!file) return;
@@ -160,8 +164,43 @@ export const Donors: React.FC = () => {
     setFamilyMembers(familyMembers.filter((_, i) => i !== idx));
   };
 
+  const validateForm = (): Record<string, string | undefined> => ({
+    full_name: isRequired(formData.full_name, 'Full name') || isWithinLength(formData.full_name, 100, 'Full name'),
+    father_name: isWithinLength(formData.father_name, 100, "Father's name"),
+    phone: isRequired(formData.phone, 'Phone number'),
+    email: isValidEmail(formData.email),
+    address_line: isWithinLength(formData.address_line, 255, 'Address line'),
+    city: isWithinLength(formData.city, 100, 'City'),
+    state: isWithinLength(formData.state, 100, 'State'),
+    date_of_birth: isNotFutureDate(formData.date_of_birth, 'Date of birth'),
+    anniversary_date: isDateAfterOrEqual(formData.anniversary_date, formData.date_of_birth, 'Anniversary date', 'date of birth'),
+    notes: isWithinLength(formData.notes, 255, 'Notes'),
+  });
+
+  const validateFamilyMembers = (): Record<number, { full_name?: string; date_of_birth?: string }> => {
+    const errs: Record<number, { full_name?: string; date_of_birth?: string }> = {};
+    familyMembers.forEach((fm, idx) => {
+      const rowErrors: { full_name?: string; date_of_birth?: string } = {
+        full_name: isRequired(fm.full_name, 'Name'),
+        date_of_birth: isNotFutureDate(fm.date_of_birth, 'Date of birth'),
+      };
+      if (rowErrors.full_name || rowErrors.date_of_birth) errs[idx] = rowErrors;
+    });
+    return errs;
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const fieldErrors = validateForm();
+    const famErrors = validateFamilyMembers();
+    if (hasErrors(fieldErrors) || Object.keys(famErrors).length > 0) {
+      setErrors(fieldErrors);
+      setFamilyErrors(famErrors);
+      return;
+    }
+
+    setSubmitting(true);
     const payload = {
       ...formData,
       family_members: familyMembers,
@@ -170,6 +209,7 @@ export const Donors: React.FC = () => {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    setSubmitting(false);
 
     if (res.success) {
       setShowAddModal(false);
@@ -193,6 +233,8 @@ export const Donors: React.FC = () => {
         notes: '',
       });
       setFamilyMembers([]);
+      setErrors({});
+      setFamilyErrors({});
       loadDonors();
       toast.success('Donor profile saved.');
     } else {
@@ -293,19 +335,23 @@ export const Donors: React.FC = () => {
                   <input
                     type="text"
                     required
+                    maxLength={100}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, full_name: e.target.value }); setErrors((prev) => ({ ...prev, full_name: undefined })); }}
                   />
+                  {errors.full_name && <p className="text-xs text-rose-600 font-medium mt-1">{errors.full_name}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Father's Name</label>
                   <input
                     type="text"
+                    maxLength={100}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.father_name}
-                    onChange={(e) => setFormData({ ...formData, father_name: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, father_name: e.target.value }); setErrors((prev) => ({ ...prev, father_name: undefined })); }}
                   />
+                  {errors.father_name && <p className="text-xs text-rose-600 font-medium mt-1">{errors.father_name}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number *</label>
@@ -319,8 +365,9 @@ export const Donors: React.FC = () => {
                     placeholder="10-digit mobile number"
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    onChange={(e) => { setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }); setErrors((prev) => ({ ...prev, phone: undefined })); }}
                   />
+                  {errors.phone && <p className="text-xs text-rose-600 font-medium mt-1">{errors.phone}</p>}
                 </div>
               </div>
 
@@ -331,8 +378,9 @@ export const Donors: React.FC = () => {
                     type="email"
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors((prev) => ({ ...prev, email: undefined })); }}
                   />
+                  {errors.email && <p className="text-xs text-rose-600 font-medium mt-1">{errors.email}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Marital Status</label>
@@ -351,10 +399,12 @@ export const Donors: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Address Line</label>
                 <input
                   type="text"
+                  maxLength={255}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={formData.address_line}
-                  onChange={(e) => setFormData({ ...formData, address_line: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, address_line: e.target.value }); setErrors((prev) => ({ ...prev, address_line: undefined })); }}
                 />
+                {errors.address_line && <p className="text-xs text-rose-600 font-medium mt-1">{errors.address_line}</p>}
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -362,19 +412,23 @@ export const Donors: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">City</label>
                   <input
                     type="text"
+                    maxLength={100}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, city: e.target.value }); setErrors((prev) => ({ ...prev, city: undefined })); }}
                   />
+                  {errors.city && <p className="text-xs text-rose-600 font-medium mt-1">{errors.city}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">State</label>
                   <input
                     type="text"
+                    maxLength={100}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, state: e.target.value }); setErrors((prev) => ({ ...prev, state: undefined })); }}
                   />
+                  {errors.state && <p className="text-xs text-rose-600 font-medium mt-1">{errors.state}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Pincode</label>
@@ -397,10 +451,12 @@ export const Donors: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split('T')[0]}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, date_of_birth: e.target.value }); setErrors((prev) => ({ ...prev, date_of_birth: undefined, anniversary_date: undefined })); }}
                   />
+                  {errors.date_of_birth && <p className="text-xs text-rose-600 font-medium mt-1">{errors.date_of_birth}</p>}
                   {formData.date_of_birth && calculateAge(formData.date_of_birth) !== null && (
                     <p className="text-[11px] text-emerald-600 font-semibold mt-1">Age: {calculateAge(formData.date_of_birth)} years</p>
                   )}
@@ -409,10 +465,12 @@ export const Donors: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Anniversary Date</label>
                   <input
                     type="date"
+                    min={formData.date_of_birth || undefined}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.anniversary_date}
-                    onChange={(e) => setFormData({ ...formData, anniversary_date: e.target.value })}
+                    onChange={(e) => { setFormData({ ...formData, anniversary_date: e.target.value }); setErrors((prev) => ({ ...prev, anniversary_date: undefined })); }}
                   />
+                  {errors.anniversary_date && <p className="text-xs text-rose-600 font-medium mt-1">{errors.anniversary_date}</p>}
                 </div>
               </div>
 
@@ -476,10 +534,12 @@ export const Donors: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Notes</label>
                 <textarea
                   rows={2}
+                  maxLength={255}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, notes: e.target.value }); setErrors((prev) => ({ ...prev, notes: undefined })); }}
                 />
+                {errors.notes && <p className="text-xs text-rose-600 font-medium mt-1">{errors.notes}</p>}
               </div>
 
               {/* Children & Family Members */}
@@ -492,19 +552,24 @@ export const Donors: React.FC = () => {
                 </div>
 
                 {familyMembers.map((fm, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border">
-                    <input
-                      type="text"
-                      placeholder="Name"
-                      required
-                      className="flex-1 px-2 py-1 border rounded text-xs"
-                      value={fm.full_name}
-                      onChange={(e) => {
-                        const updated = [...familyMembers];
-                        updated[idx].full_name = e.target.value;
-                        setFamilyMembers(updated);
-                      }}
-                    />
+                  <div key={idx} className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        required
+                        maxLength={100}
+                        className="w-full px-2 py-1 border rounded text-xs"
+                        value={fm.full_name}
+                        onChange={(e) => {
+                          const updated = [...familyMembers];
+                          updated[idx].full_name = e.target.value;
+                          setFamilyMembers(updated);
+                          setFamilyErrors((prev) => ({ ...prev, [idx]: { ...prev[idx], full_name: undefined } }));
+                        }}
+                      />
+                      {familyErrors[idx]?.full_name && <p className="text-[10px] text-rose-600 font-medium mt-0.5">{familyErrors[idx].full_name}</p>}
+                    </div>
                     <select
                       className="px-2 py-1 border rounded text-xs"
                       value={fm.relationship}
@@ -519,17 +584,22 @@ export const Donors: React.FC = () => {
                       <option value="SPOUSE">Spouse</option>
                       <option value="PARENT">Parent</option>
                     </select>
-                    <input
-                      type="date"
-                      required
-                      className="px-2 py-1 border rounded text-xs"
-                      value={fm.date_of_birth}
-                      onChange={(e) => {
-                        const updated = [...familyMembers];
-                        updated[idx].date_of_birth = e.target.value;
-                        setFamilyMembers(updated);
-                      }}
-                    />
+                    <div>
+                      <input
+                        type="date"
+                        required
+                        max={new Date().toISOString().split('T')[0]}
+                        className="px-2 py-1 border rounded text-xs"
+                        value={fm.date_of_birth}
+                        onChange={(e) => {
+                          const updated = [...familyMembers];
+                          updated[idx].date_of_birth = e.target.value;
+                          setFamilyMembers(updated);
+                          setFamilyErrors((prev) => ({ ...prev, [idx]: { ...prev[idx], date_of_birth: undefined } }));
+                        }}
+                      />
+                      {familyErrors[idx]?.date_of_birth && <p className="text-[10px] text-rose-600 font-medium mt-0.5">{familyErrors[idx].date_of_birth}</p>}
+                    </div>
                     <button type="button" onClick={() => removeFamilyMemberRow(idx)} className="text-red-500 hover:text-red-700 p-1">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -538,8 +608,8 @@ export const Donors: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save Donor Profile</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setErrors({}); setFamilyErrors({}); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={submitting} disabled={submitting}>Save Donor Profile</Button>
               </div>
             </form>
           </div>

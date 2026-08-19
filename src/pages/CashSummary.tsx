@@ -7,6 +7,7 @@ import { Save, RefreshCw, AlertCircle, CheckCircle2, Eye, Lock, Unlock, ShieldAl
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { CASH_DENOMINATIONS } from '../constants';
+import { isNonNegativeAmount, isInteger, isNotFutureDate } from '../utils/validation';
 import type { DenominationItem } from '../types';
 
 const emptyDenoms = () => Object.fromEntries(CASH_DENOMINATIONS.map((v) => [v, 0])) as { [key: number]: number };
@@ -21,6 +22,9 @@ export const CashSummary: React.FC = () => {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   const [denominations, setDenominations] = useState<{ [key: number]: number }>(emptyDenoms());
+  const [denomErrors, setDenomErrors] = useState<Record<number, string | undefined>>({});
+  const [savingDenoms, setSavingDenoms] = useState(false);
+  const dateError = isNotFutureDate(date, 'Business date');
 
   const loadSummary = async () => {
     setIsLoading(true);
@@ -50,10 +54,21 @@ export const CashSummary: React.FC = () => {
   );
 
   const handleSaveDenominations = async () => {
+    const newDenomErrors: Record<number, string | undefined> = {};
+    Object.entries(denominations).forEach(([val, qty]) => {
+      newDenomErrors[Number(val)] = isNonNegativeAmount(qty, `₹${val} count`) || isInteger(qty, `₹${val} count`);
+    });
+    if (Object.values(newDenomErrors).some((v) => v !== undefined)) {
+      setDenomErrors(newDenomErrors);
+      toast.error('Fix the invalid denomination count(s) highlighted below.');
+      return;
+    }
+
     const denomArray: DenominationItem[] = Object.entries(denominations)
       .filter(([_, qty]) => qty >= 0)
       .map(([val, qty]) => ({ value: Number(val), quantity: Number(qty) }));
 
+    setSavingDenoms(true);
     const res = await fetchAPI<any>('/cash/denominations', {
       method: 'POST',
       body: JSON.stringify({
@@ -61,8 +76,10 @@ export const CashSummary: React.FC = () => {
         denominations: denomArray,
       }),
     });
+    setSavingDenoms(false);
 
     if (res.success) {
+      setDenomErrors({});
       toast.success('Physical cash denominations saved.');
       loadSummary();
     } else {
@@ -95,12 +112,16 @@ export const CashSummary: React.FC = () => {
           <p className="text-xs text-slate-500">Aggregated daily cash receipts by Scheme/Meal type, underlying transaction drilldown, and denomination verification</p>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="date"
-            className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <div>
+            <input
+              type="date"
+              max={new Date().toISOString().split('T')[0]}
+              className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+            {dateError && <p className="text-[11px] text-rose-600 font-medium mt-1">{dateError}</p>}
+          </div>
           <Button variant="outline" size="sm" onClick={loadSummary} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
@@ -272,11 +293,16 @@ export const CashSummary: React.FC = () => {
                 <input
                   type="number"
                   min="0"
+                  step="1"
                   placeholder="0"
                   className="w-full px-3 py-1.5 border rounded-lg bg-white text-base font-bold font-mono text-center focus:ring-2 focus:ring-emerald-500"
                   value={denominations[val] || ''}
-                  onChange={(e) => setDenominations({ ...denominations, [val]: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    setDenominations({ ...denominations, [val]: parseInt(e.target.value) || 0 });
+                    setDenomErrors((prev) => ({ ...prev, [val]: undefined }));
+                  }}
                 />
+                {denomErrors[val] && <p className="text-[10px] text-rose-600 font-medium">{denomErrors[val]}</p>}
                 <div className="text-right font-mono text-xs font-bold text-emerald-700">
                   ₹{((denominations[val] || 0) * val).toLocaleString('en-IN')}
                 </div>
@@ -296,7 +322,7 @@ export const CashSummary: React.FC = () => {
                 <span>Variance: ₹{difference.toLocaleString('en-IN')} {difference === 0 ? '(Balanced)' : '(Mismatch)'}</span>
               </div>
 
-              <Button variant="primary" size="sm" onClick={handleSaveDenominations}>
+              <Button variant="primary" size="sm" onClick={handleSaveDenominations} isLoading={savingDenoms} disabled={savingDenoms}>
                 <Save className="w-4 h-4 mr-1.5" /> Save Denominations
               </Button>
             </div>

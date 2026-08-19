@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Plus, RefreshCw, Layers } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { isPositiveAmount, isWithinLength } from '../utils/validation';
 import type { Scheme } from '../types';
 
 export const Schemes: React.FC = () => {
@@ -22,6 +24,11 @@ export const Schemes: React.FC = () => {
     description: '',
     prices: emptyPrices(),
   });
+  const [cellErrors, setCellErrors] = useState<Record<string, string | undefined>>({});
+  const [descriptionError, setDescriptionError] = useState<string | undefined>(undefined);
+  const [submitting, setSubmitting] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<Scheme | null>(null);
 
   const loadSchemes = async () => {
     setIsLoading(true);
@@ -39,6 +46,25 @@ export const Schemes: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Only cells the user actually filled in must be valid — an empty cell
+    // is intentionally allowed (a scheme need not offer every meal).
+    const newCellErrors: Record<string, string | undefined> = {};
+    (['VEG', 'NON_VEG'] as const).forEach((foodType) => {
+      MEAL_TYPES.forEach((mealType) => {
+        const raw = formData.prices[foodType][mealType];
+        if (raw !== '') {
+          newCellErrors[`${foodType}.${mealType}`] = isPositiveAmount(raw, 'Price');
+        }
+      });
+    });
+    const newDescriptionError = isWithinLength(formData.description, 255, 'Description');
+
+    if (Object.values(newCellErrors).some((v) => v !== undefined) || newDescriptionError) {
+      setCellErrors(newCellErrors);
+      setDescriptionError(newDescriptionError);
+      return;
+    }
+
     const cells = (['VEG', 'NON_VEG'] as const).flatMap((foodType) =>
       MEAL_TYPES.filter((mealType) => Number(formData.prices[foodType][mealType]) > 0).map((mealType) => ({
         food_type: foodType,
@@ -52,14 +78,18 @@ export const Schemes: React.FC = () => {
       return;
     }
 
+    setSubmitting(true);
     const res = await fetchAPI<Scheme[]>('/schemes/bulk', {
       method: 'POST',
       body: JSON.stringify({ description: formData.description, cells }),
     });
+    setSubmitting(false);
 
     if (res.success) {
       setShowAddModal(false);
       setFormData({ description: '', prices: emptyPrices() });
+      setCellErrors({});
+      setDescriptionError(undefined);
       loadSchemes();
       toast.success(`Created ${cells.length} scheme${cells.length === 1 ? '' : 's'}.`);
     } else {
@@ -68,10 +98,12 @@ export const Schemes: React.FC = () => {
   };
 
   const handleToggleActive = async (s: Scheme) => {
+    setTogglingId(s.id);
     const res = await fetchAPI<Scheme>(`/schemes/${s.id}`, {
       method: 'PUT',
       body: JSON.stringify({ is_active: !s.is_active }),
     });
+    setTogglingId(null);
     if (res.success) {
       loadSchemes();
     } else {
@@ -137,7 +169,12 @@ export const Schemes: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button variant="outline" size="sm" onClick={() => handleToggleActive(s)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={togglingId === s.id}
+                        onClick={() => (s.is_active ? setDeactivateTarget(s) : handleToggleActive(s))}
+                      >
                         {s.is_active ? 'Deactivate' : 'Activate'}
                       </Button>
                     </td>
@@ -169,18 +206,26 @@ export const Schemes: React.FC = () => {
                       {MEAL_TYPES.map((mealType) => (
                         <div key={mealType} className="flex items-center justify-between gap-2">
                           <label className="text-xs text-slate-600 font-medium">{mealType.charAt(0) + mealType.slice(1).toLowerCase()}</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="—"
-                            className="w-24 px-2 py-1 border rounded bg-white text-right font-mono text-xs focus:ring-2 focus:ring-emerald-500"
-                            value={formData.prices[foodType][mealType]}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              prices: { ...formData.prices, [foodType]: { ...formData.prices[foodType], [mealType]: e.target.value } },
-                            })}
-                          />
+                          <div>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="—"
+                              className="w-24 px-2 py-1 border rounded bg-white text-right font-mono text-xs focus:ring-2 focus:ring-emerald-500"
+                              value={formData.prices[foodType][mealType]}
+                              onChange={(e) => {
+                                setFormData({
+                                  ...formData,
+                                  prices: { ...formData.prices, [foodType]: { ...formData.prices[foodType], [mealType]: e.target.value } },
+                                });
+                                setCellErrors((prev) => ({ ...prev, [`${foodType}.${mealType}`]: undefined }));
+                              }}
+                            />
+                            {cellErrors[`${foodType}.${mealType}`] && (
+                              <p className="text-[10px] text-rose-600 font-medium mt-0.5 text-right">{cellErrors[`${foodType}.${mealType}`]}</p>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -192,20 +237,36 @@ export const Schemes: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
                 <textarea
                   rows={2}
+                  maxLength={255}
                   placeholder="Optional details regarding meals or sponsorship scope..."
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, description: e.target.value }); setDescriptionError(undefined); }}
                 />
+                {descriptionError && <p className="text-xs text-rose-600 font-medium mt-1">{descriptionError}</p>}
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save Scheme</Button>
+                <Button type="submit" variant="primary" isLoading={submitting} disabled={submitting}>Save Scheme</Button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {deactivateTarget && (
+        <ConfirmDialog
+          title="Deactivate Scheme"
+          message={`Deactivate "${deactivateTarget.name}"? Donors will no longer be able to select this scheme for new donations.`}
+          confirmLabel="Deactivate"
+          variant="danger"
+          onCancel={() => setDeactivateTarget(null)}
+          onConfirm={() => {
+            handleToggleActive(deactivateTarget);
+            setDeactivateTarget(null);
+          }}
+        />
       )}
     </div>
   );

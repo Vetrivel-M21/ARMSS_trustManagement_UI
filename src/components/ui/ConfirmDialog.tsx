@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'primary' | 'danger';
   requireReason?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: (reason?: string) => void;
   onCancel: () => void;
 }
@@ -23,11 +24,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelLabel = 'Cancel',
   variant = 'primary',
   requireReason = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }) => {
   const [reason, setReason] = useState('');
-  const disabled = requireReason && reason.trim() === '';
+  const disabled = confirmDisabled || (requireReason && reason.trim() === '');
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

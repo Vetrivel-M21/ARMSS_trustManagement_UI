@@ -5,6 +5,7 @@ import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import type { User } from '../types';
 import { Plus, RefreshCw, ShieldCheck, UserCog } from 'lucide-react';
+import { isRequired, isValidEmail, isMinLength, hasErrors } from '../utils/validation';
 
 export const UserManagement: React.FC = () => {
   const toast = useToast();
@@ -17,6 +18,10 @@ export const UserManagement: React.FC = () => {
     username: '', full_name: '', email: '', password: '', role: 'STAFF' as 'STAFF' | 'ADMIN',
   });
   const [editData, setEditData] = useState({ full_name: '', email: '', role: 'STAFF' as 'STAFF' | 'ADMIN', is_active: true, password: '' });
+  const [createErrors, setCreateErrors] = useState<Record<string, string | undefined>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string | undefined>>({});
+  const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   const loadUsers = async () => {
     setIsLoading(true);
@@ -33,10 +38,25 @@ export const UserManagement: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const fieldErrors: Record<string, string | undefined> = {
+      username: isRequired(formData.username, 'Username'),
+      full_name: isRequired(formData.full_name, 'Full name'),
+      email: isRequired(formData.email, 'Email') || isValidEmail(formData.email),
+      password: isMinLength(formData.password, 8, 'Password'),
+    };
+    if (hasErrors(fieldErrors)) {
+      setCreateErrors(fieldErrors);
+      return;
+    }
+
+    setCreating(true);
     const res = await fetchAPI<User>('/users', { method: 'POST', body: JSON.stringify(formData) });
+    setCreating(false);
     if (res.success) {
       setShowAddModal(false);
       setFormData({ username: '', full_name: '', email: '', password: '', role: 'STAFF' });
+      setCreateErrors({});
       toast.success('User account created.');
       loadUsers();
     } else {
@@ -47,18 +67,33 @@ export const UserManagement: React.FC = () => {
   const openEdit = (u: User) => {
     setEditTarget(u);
     setEditData({ full_name: u.full_name, email: u.email, role: u.role, is_active: u.is_active ?? true, password: '' });
+    setEditErrors({});
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTarget) return;
+
+    const fieldErrors: Record<string, string | undefined> = {
+      email: isValidEmail(editData.email),
+      password: editData.password ? isMinLength(editData.password, 8, 'Password') : undefined,
+    };
+    if (hasErrors(fieldErrors)) {
+      setEditErrors(fieldErrors);
+      return;
+    }
+
     const payload: Record<string, unknown> = {
       full_name: editData.full_name, email: editData.email, role: editData.role, is_active: editData.is_active,
     };
     if (editData.password) payload.password = editData.password;
+
+    setUpdating(true);
     const res = await fetchAPI<User>(`/users/${editTarget.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    setUpdating(false);
     if (res.success) {
       setEditTarget(null);
+      setEditErrors({});
       toast.success('User account updated.');
       loadUsers();
     } else {
@@ -137,23 +172,27 @@ export const UserManagement: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Username *</label>
                 <input type="text" required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
+                  value={formData.username} onChange={(e) => { setFormData({ ...formData, username: e.target.value }); setCreateErrors((prev) => ({ ...prev, username: undefined })); }} />
+                {createErrors.username && <p className="text-xs text-rose-600 font-medium mt-1">{createErrors.username}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name *</label>
                 <input type="text" required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
+                  value={formData.full_name} onChange={(e) => { setFormData({ ...formData, full_name: e.target.value }); setCreateErrors((prev) => ({ ...prev, full_name: undefined })); }} />
+                {createErrors.full_name && <p className="text-xs text-rose-600 font-medium mt-1">{createErrors.full_name}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
                 <input type="email" required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  value={formData.email} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setCreateErrors((prev) => ({ ...prev, email: undefined })); }} />
+                {createErrors.email && <p className="text-xs text-rose-600 font-medium mt-1">{createErrors.email}</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Password *</label>
                   <input type="password" required minLength={8} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                    value={formData.password} onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setCreateErrors((prev) => ({ ...prev, password: undefined })); }} />
+                  {createErrors.password && <p className="text-xs text-rose-600 font-medium mt-1">{createErrors.password}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Role *</label>
@@ -165,8 +204,8 @@ export const UserManagement: React.FC = () => {
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary">Create User</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setCreateErrors({}); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={creating} disabled={creating}>Create User</Button>
               </div>
             </form>
           </div>
@@ -186,7 +225,8 @@ export const UserManagement: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
                 <input type="email" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
+                  value={editData.email} onChange={(e) => { setEditData({ ...editData, email: e.target.value }); setEditErrors((prev) => ({ ...prev, email: undefined })); }} />
+                {editErrors.email && <p className="text-xs text-rose-600 font-medium mt-1">{editErrors.email}</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -210,11 +250,12 @@ export const UserManagement: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Reset Password (optional)</label>
                 <input type="password" minLength={8} placeholder="Leave blank to keep current password"
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={editData.password} onChange={(e) => setEditData({ ...editData, password: e.target.value })} />
+                  value={editData.password} onChange={(e) => { setEditData({ ...editData, password: e.target.value }); setEditErrors((prev) => ({ ...prev, password: undefined })); }} />
+                {editErrors.password && <p className="text-xs text-rose-600 font-medium mt-1">{editErrors.password}</p>}
               </div>
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
-                <Button type="submit" variant="primary">Save Changes</Button>
+                <Button type="button" variant="outline" onClick={() => { setEditTarget(null); setEditErrors({}); }}>Cancel</Button>
+                <Button type="submit" variant="primary" isLoading={updating} disabled={updating}>Save Changes</Button>
               </div>
             </form>
           </div>
