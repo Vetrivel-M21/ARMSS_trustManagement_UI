@@ -4,7 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Plus, Search, UserCheck, Trash2, Eye, Upload, Check, Download, Phone, Mail, MapPin, Cake, Calendar, Users, FileText } from 'lucide-react';
 import { fetchAPI, assetUrl } from '../api/client';
 import { useToast } from '../context/ToastContext';
-import { uploadFile, downloadFile } from '../utils/upload';
+import { uploadFile, downloadFile, fetchAuthedBlobUrl } from '../utils/upload';
+import { useAuthedAsset } from '../hooks/useAuthedAsset';
 import type { Donor } from '../types';
 
 const calculateAge = (dob: string): number | null => {
@@ -36,6 +37,56 @@ const RELATIONSHIP_STYLES: Record<string, string> = {
   PARENT: 'bg-amber-50 text-amber-700 border-amber-200',
 };
 
+/** One KYC document row (Aadhaar/PAN). A separate component so `useAuthedAsset`
+ * can be called once per document — hooks can't be called inside a .map(). */
+const KycDocRow: React.FC<{
+  label: string;
+  number: string;
+  docPath: string;
+  slug: string;
+  donorCode: string;
+  onDownload: (path: string, filename: string) => void;
+}> = ({ label, number, docPath, slug, donorCode, onDownload }) => {
+  const thumbUrl = useAuthedAsset(docPath && isImageFile(docPath) ? assetUrl(docPath) : null);
+
+  const handlePreview = async () => {
+    const url = thumbUrl || (await fetchAuthedBlobUrl(assetUrl(docPath)));
+    if (url) window.open(url, '_blank');
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50/60">
+      <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-200 bg-white shrink-0 flex items-center justify-center">
+        {docPath ? (
+          isImageFile(docPath) ? (
+            thumbUrl ? <img src={thumbUrl} alt={`${label} document`} className="w-full h-full object-cover" /> : <FileText className="w-6 h-6 text-slate-300" />
+          ) : (
+            <FileText className="w-6 h-6 text-slate-400" />
+          )
+        ) : (
+          <FileText className="w-6 h-6 text-slate-200" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</p>
+        <p className="font-mono font-semibold text-slate-900 text-sm truncate">{number || 'Not provided'}</p>
+      </div>
+      {docPath ? (
+        <div className="flex gap-1.5 shrink-0">
+          <Button variant="outline" size="sm" onClick={handlePreview}>
+            <Eye className="w-3.5 h-3.5 mr-1" />Preview
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onDownload(docPath, `${donorCode}-${slug}${docExtension(docPath)}`)}>
+            <Download className="w-3.5 h-3.5 mr-1" />Download
+          </Button>
+        </div>
+      ) : (
+        <span className="text-[11px] text-slate-400 italic shrink-0">No document on file</span>
+      )}
+    </div>
+  );
+};
+
 export const Donors: React.FC = () => {
   const toast = useToast();
   const [donors, setDonors] = useState<Donor[]>([]);
@@ -43,6 +94,7 @@ export const Donors: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDonor, setSelectedDonor] = useState<Donor | null>(null);
+  const selectedDonorPhotoUrl = useAuthedAsset(selectedDonor?.photo_path ? assetUrl(selectedDonor.photo_path) : null);
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -260,9 +312,14 @@ export const Donors: React.FC = () => {
                   <input
                     type="text"
                     required
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    title="10-digit mobile number"
+                    placeholder="10-digit mobile number"
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   />
                 </div>
               </div>
@@ -323,9 +380,14 @@ export const Donors: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Pincode</label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    pattern="[0-9]{6}"
+                    title="6-digit pincode"
+                    placeholder="6-digit pincode"
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.pincode}
-                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
                   />
                 </div>
               </div>
@@ -360,20 +422,27 @@ export const Donors: React.FC = () => {
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Aadhaar Number</label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      maxLength={12}
+                      pattern="[0-9]{12}"
+                      title="12-digit Aadhaar number"
                       placeholder="12-digit Aadhaar"
                       className="w-full px-3 py-2 border rounded-lg bg-white"
                       value={formData.aadhaar_number}
-                      onChange={(e) => setFormData({ ...formData, aadhaar_number: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, aadhaar_number: e.target.value.replace(/\D/g, '').slice(0, 12) })}
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">PAN Number</label>
                     <input
                       type="text"
+                      maxLength={10}
+                      pattern="[A-Z]{5}[0-9]{4}[A-Z]"
+                      title="Format: ABCDE1234F"
                       placeholder="10-digit PAN"
                       className="w-full px-3 py-2 border rounded-lg bg-white uppercase"
                       value={formData.pan_number}
-                      onChange={(e) => setFormData({ ...formData, pan_number: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
                     />
                   </div>
                 </div>
@@ -483,8 +552,8 @@ export const Donors: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-start border-b pb-4">
               <div className="flex items-center gap-4">
-                {selectedDonor.photo_path ? (
-                  <img src={assetUrl(selectedDonor.photo_path)} alt={selectedDonor.full_name} className="w-16 h-16 rounded-full object-cover border-2 border-emerald-100 shrink-0" />
+                {selectedDonorPhotoUrl ? (
+                  <img src={selectedDonorPhotoUrl} alt={selectedDonor.full_name} className="w-16 h-16 rounded-full object-cover border-2 border-emerald-100 shrink-0" />
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-bold shrink-0">
                     {selectedDonor.full_name.charAt(0).toUpperCase()}
@@ -574,44 +643,22 @@ export const Donors: React.FC = () => {
             {/* KYC Documents */}
             <Card title="KYC Documents">
               <div className="space-y-3">
-                {([
-                  { label: 'Aadhaar Number', number: selectedDonor.aadhaar_number, docPath: selectedDonor.aadhaar_doc_path, slug: 'aadhaar' },
-                  { label: 'PAN Number', number: selectedDonor.pan_number, docPath: selectedDonor.pan_doc_path, slug: 'pan' },
-                ] as const).map((doc) => (
-                  <div key={doc.slug} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50/60">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-200 bg-white shrink-0 flex items-center justify-center">
-                      {doc.docPath ? (
-                        isImageFile(doc.docPath) ? (
-                          <img src={assetUrl(doc.docPath)} alt={`${doc.label} document`} className="w-full h-full object-cover" />
-                        ) : (
-                          <FileText className="w-6 h-6 text-slate-400" />
-                        )
-                      ) : (
-                        <FileText className="w-6 h-6 text-slate-200" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{doc.label}</p>
-                      <p className="font-mono font-semibold text-slate-900 text-sm truncate">{doc.number || 'Not provided'}</p>
-                    </div>
-                    {doc.docPath ? (
-                      <div className="flex gap-1.5 shrink-0">
-                        <a href={assetUrl(doc.docPath)} target="_blank" rel="noreferrer">
-                          <Button variant="outline" size="sm"><Eye className="w-3.5 h-3.5 mr-1" />Preview</Button>
-                        </a>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownload(doc.docPath, `${selectedDonor.donor_code}-${doc.slug}${docExtension(doc.docPath)}`)}
-                        >
-                          <Download className="w-3.5 h-3.5 mr-1" />Download
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic shrink-0">No document on file</span>
-                    )}
-                  </div>
-                ))}
+                <KycDocRow
+                  label="Aadhaar Number"
+                  number={selectedDonor.aadhaar_number}
+                  docPath={selectedDonor.aadhaar_doc_path}
+                  slug="aadhaar"
+                  donorCode={selectedDonor.donor_code}
+                  onDownload={handleDownload}
+                />
+                <KycDocRow
+                  label="PAN Number"
+                  number={selectedDonor.pan_number}
+                  docPath={selectedDonor.pan_doc_path}
+                  slug="pan"
+                  donorCode={selectedDonor.donor_code}
+                  onDownload={handleDownload}
+                />
               </div>
             </Card>
 

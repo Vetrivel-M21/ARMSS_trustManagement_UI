@@ -1,6 +1,9 @@
 import type { APIResponse } from '../types';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+// Overridable per-environment via VITE_API_BASE_URL (e.g. in a .env.production
+// or the deployment host's build-time env vars) — falls back to the local dev
+// backend so `npm run dev` keeps working with no setup.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
 
 // Origin the backend serves static files from (e.g. /uploads/...) — same
 // host as the API but without the /api/v1 prefix.

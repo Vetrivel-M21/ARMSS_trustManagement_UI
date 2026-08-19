@@ -40,6 +40,7 @@ export interface BankAccount {
   account_number_masked: string;
   ifsc_code: string;
   branch: string;
+  location?: string;
   opening_balance: number;
   qr_code_path?: string;
   current_balance: number;
@@ -303,7 +304,7 @@ export interface YoYMonthDonorItem {
 }
 
 export interface BirthdayItem {
-  type: 'DONOR' | 'FAMILY_MEMBER';
+  type: 'DONOR' | 'FAMILY_MEMBER' | 'ANNIVERSARY';
   donor_id: number;
   donor_name: string;
   person_name: string;
@@ -314,4 +315,5 @@ export interface BirthdayItem {
   birthday_day: number;
   birthday_month: number;
   age: number;
+  family_member_id?: number;
 }

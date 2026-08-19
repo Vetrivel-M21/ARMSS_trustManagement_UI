@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, RefreshCw, Receipt, Banknote, Landmark, Download, Upload, Check, FileText } from 'lucide-react';
+import { Plus, RefreshCw, Receipt, Banknote, Landmark, Download, Upload, Check, FileText, Gift } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import { CASH_DENOMINATIONS } from '../constants';
 import type { Donation, Donor, Scheme, BankAccount, Voucher } from '../types';
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  BIRTHDAY: 'Birthday',
+  CHILD_BIRTHDAY: 'Child Birthday',
+  ANNIVERSARY: 'Wedding Anniversary',
+  MEMORIAL: 'Memorial',
+  FESTIVAL: 'Festival',
+  OTHER: 'Other Occasion',
+};
+
+interface DonationPrefill {
+  donorId: number;
+  eventType: string;
+  eventPersonName: string;
+  eventDate: string;
+  relationshipToDonor: string;
+  familyMemberId?: number;
+}
 
 const emptyDonationForm = () => ({
   donor_id: 0,
@@ -22,10 +40,17 @@ const emptyDonationForm = () => ({
   attachment_path: '',
   purpose: 'General Donation',
   notes: '',
+  event_type: '',
+  event_person_name: '',
+  event_date: '',
+  relationship_to_donor: '',
+  family_member_id: 0,
 });
 
 export const Donations: React.FC = () => {
   const toast = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [donations, setDonations] = useState<Donation[]>([]);
   const [donors, setDonors] = useState<Donor[]>([]);
   const [schemes, setSchemes] = useState<Scheme[]>([]);
@@ -105,6 +130,29 @@ export const Donations: React.FC = () => {
     loadInitialData();
   }, []);
 
+  // Arriving from the Birthday Calendar's "Record Donation" action — pre-fill
+  // the donor + occasion and open the modal. Cleared from history state right
+  // away so revisiting/refreshing this page doesn't re-open it.
+  useEffect(() => {
+    const prefill = (location.state as { donationPrefill?: DonationPrefill } | null)?.donationPrefill;
+    if (!prefill) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      donor_id: prefill.donorId,
+      event_type: prefill.eventType,
+      event_person_name: prefill.eventPersonName,
+      event_date: prefill.eventDate,
+      relationship_to_donor: prefill.relationshipToDonor,
+      family_member_id: prefill.familyMemberId ?? 0,
+      purpose: `${EVENT_TYPE_LABELS[prefill.eventType] || prefill.eventType} – ${prefill.eventPersonName}`,
+    }));
+    setPurposeTouched(true);
+    setShowAddModal(true);
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   const denomSum = Object.entries(denominations).reduce((acc, [val, qty]) => acc + Number(val) * Number(qty), 0);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -129,6 +177,7 @@ export const Donations: React.FC = () => {
       donor_id: Number(formData.donor_id),
       scheme_id: formData.scheme_id ? Number(formData.scheme_id) : undefined,
       bank_account_id: formData.bank_account_id ? Number(formData.bank_account_id) : undefined,
+      family_member_id: formData.family_member_id ? Number(formData.family_member_id) : undefined,
       denominations: denomList,
     };
 
@@ -139,6 +188,9 @@ export const Donations: React.FC = () => {
 
     if (res.success && res.data) {
       setShowAddModal(false);
+      setFormData(emptyDonationForm());
+      setPurposeTouched(false);
+      setDenominations(Object.fromEntries(CASH_DENOMINATIONS.map((v) => [v, 0])));
       setActiveVoucher(res.data.voucher);
       loadInitialData();
       toast.success('Donation recorded and voucher issued.');
@@ -158,7 +210,15 @@ export const Donations: React.FC = () => {
           <Button variant="outline" size="sm" onClick={loadInitialData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setFormData(emptyDonationForm());
+              setPurposeTouched(false);
+              setShowAddModal(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-1.5" /> Record New Donation
           </Button>
         </div>
@@ -239,6 +299,62 @@ export const Donations: React.FC = () => {
                     <option key={d.id} value={d.id}>{d.full_name} ({d.donor_code} - {d.phone})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Event / Occasion Details — optional; ties a donation to a birthday,
+                  anniversary, memorial, etc. (spec section 13's Event Donation workflow) */}
+              <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-3">
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <Gift className="w-3.5 h-3.5" /> Event / Occasion Details (Optional)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Event Type</label>
+                    <select
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                      value={formData.event_type}
+                      onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
+                    >
+                      <option value="">-- Not Event-Related --</option>
+                      {Object.entries(EVENT_TYPE_LABELS).map(([val, label]) => (
+                        <option key={val} value={val}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Event Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                      value={formData.event_date}
+                      onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+                {formData.event_type && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Event Person Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Arun Kumar"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                        value={formData.event_person_name}
+                        onChange={(e) => setFormData({ ...formData, event_person_name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Relationship to Donor</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Son, Spouse, Self"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                        value={formData.relationship_to_donor}
+                        onChange={(e) => setFormData({ ...formData, relationship_to_donor: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Food Type -> Meal Type -> Transaction Type -> Amount (auto-filled + locked once a scheme matches) */}

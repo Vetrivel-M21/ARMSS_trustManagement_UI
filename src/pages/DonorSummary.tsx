@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { RefreshCw, Users, Calendar, Cake } from 'lucide-react';
+import { RefreshCw, Users, Calendar, Cake, Gift } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import type { YoYComparisonItem, BirthdayItem, YoYMonthDonorItem } from '../types';
 
@@ -10,9 +11,23 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+// Builds a real calendar date (current year) for a report row's day/month —
+// clamps Feb 29 to Feb 28 when the current year isn't a leap year, since the
+// report only ever gives back a day-of-month + month, not a specific year.
+const safeEventDate = (month: number, day: number): string => {
+  const year = new Date().getFullYear();
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const safeDay = month === 2 && day === 29 && !isLeap ? 28 : day;
+  return `${year}-${String(month).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+};
+
+const eventTypeFor = (b: BirthdayItem): string =>
+  b.type === 'ANNIVERSARY' ? 'ANNIVERSARY' : b.type === 'FAMILY_MEMBER' ? 'CHILD_BIRTHDAY' : 'BIRTHDAY';
+
 type DonorSummaryTab = 'YOY_COMPARISON' | 'BIRTHDAYS';
 
 export const DonorSummary: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<DonorSummaryTab>('YOY_COMPARISON');
   const [targetMonth, setTargetMonth] = useState(() => new Date().getMonth() + 1);
   const [yoyYear, setYoyYear] = useState(() => new Date().getFullYear());
@@ -50,6 +65,21 @@ export const DonorSummary: React.FC = () => {
     setSelectedYoyMonth(null);
     setYoyMonthDonors(null);
   }, [yoyYear]);
+
+  const recordDonationFor = (b: BirthdayItem) => {
+    navigate('/donations', {
+      state: {
+        donationPrefill: {
+          donorId: b.donor_id,
+          eventType: eventTypeFor(b),
+          eventPersonName: b.person_name,
+          eventDate: safeEventDate(b.birthday_month, b.birthday_day),
+          relationshipToDonor: b.relationship,
+          familyMemberId: b.family_member_id,
+        },
+      },
+    });
+  };
 
   const loadYoyMonthDonors = async (month: number) => {
     setSelectedYoyMonth(month);
@@ -222,29 +252,39 @@ export const DonorSummary: React.FC = () => {
                     <th className="px-4 py-3">Relationship</th>
                     <th className="px-4 py-3">Primary Donor</th>
                     <th className="px-4 py-3">Phone</th>
-                    <th className="px-4 py-3 text-center">Birthday Date</th>
-                    <th className="px-4 py-3 text-center">Turning Age</th>
+                    <th className="px-4 py-3 text-center">Date</th>
+                    <th className="px-4 py-3 text-center">Turning / Years</th>
+                    <th className="px-4 py-3 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-800 text-xs">
                   {birthdayData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-6 text-center text-slate-400">No birthdays in this month</td>
+                      <td colSpan={8} className="px-4 py-6 text-center text-slate-400">No birthdays or anniversaries in this month</td>
                     </tr>
                   ) : (
                     birthdayData.map((b, idx) => (
                       <tr key={idx} className="hover:bg-slate-50">
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded font-semibold text-[10px] ${b.type === 'DONOR' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}`}>
-                            {b.type === 'DONOR' ? 'Donor' : 'Child / Family'}
+                          <span
+                            className={`px-2 py-0.5 rounded font-semibold text-[10px] ${
+                              b.type === 'DONOR' ? 'bg-emerald-100 text-emerald-800' : b.type === 'ANNIVERSARY' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                            }`}
+                          >
+                            {b.type === 'DONOR' ? 'Donor' : b.type === 'ANNIVERSARY' ? 'Anniversary' : 'Child / Family'}
                           </span>
                         </td>
                         <td className="px-4 py-3 font-bold text-slate-900">{b.person_name}</td>
                         <td className="px-4 py-3 text-slate-500">{b.relationship}</td>
                         <td className="px-4 py-3 font-medium text-slate-800">{b.donor_name}</td>
                         <td className="px-4 py-3 font-mono">{b.phone}</td>
-                        <td className="px-4 py-3 text-center font-bold text-emerald-700">{b.birthday_day}th {b.birthday_month}</td>
+                        <td className="px-4 py-3 text-center font-bold text-emerald-700">{b.birthday_day}th {MONTH_NAMES[b.birthday_month - 1]}</td>
                         <td className="px-4 py-3 text-center font-mono font-semibold">{b.age} yrs</td>
+                        <td className="px-4 py-3 text-center">
+                          <Button variant="outline" size="sm" onClick={() => recordDonationFor(b)}>
+                            <Gift className="w-3.5 h-3.5 mr-1" /> Record Donation
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}

@@ -24,7 +24,10 @@ async function loadImage(url: string): Promise<{ dataUrl: string; width: number;
     // that cache entry, the browser rejects it with a false "no
     // Access-Control-Allow-Origin header" error even though the server does
     // send one on a fresh request. Forcing a real network request avoids it.
-    const res = await fetch(url, { cache: 'no-store' });
+    // Authorization header is required for /uploads (the QR image); harmless
+    // no-op for the frontend-served /trust-logo.png.
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(url, { cache: 'no-store', headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!res.ok) {
       console.warn(`voucherPdf: failed to fetch image ${url} (status ${res.status})`);
       return null;

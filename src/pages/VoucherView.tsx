@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { fetchAPI, assetUrl } from '../api/client';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
+import { useAuthedAsset } from '../hooks/useAuthedAsset';
 import { ArrowLeft, Printer, Download, Share2, Landmark, CheckCircle2, ThumbsUp } from 'lucide-react';
 import type { Voucher } from '../types';
 
@@ -30,6 +31,8 @@ export const VoucherView: React.FC = () => {
     };
     load();
   }, [id]);
+
+  const qrUrl = useAuthedAsset(voucher?.bank_account?.qr_code_path ? assetUrl(voucher.bank_account.qr_code_path) : null);
 
   if (isLoading) {
     return <div className="text-center py-16 text-slate-400 text-sm">Loading voucher...</div>;
@@ -161,14 +164,12 @@ export const VoucherView: React.FC = () => {
           </div>
 
           <div className="p-4 flex flex-col items-center justify-center gap-2">
-            {voucher.bank_account?.qr_code_path ? (
+            {voucher.bank_account?.qr_code_path && qrUrl ? (
               <>
-                <img src={assetUrl(voucher.bank_account.qr_code_path)} alt="Payment QR" className="w-28 h-28 object-contain border rounded-lg" />
-                <a href={assetUrl(voucher.bank_account.qr_code_path)} target="_blank" rel="noreferrer" className="w-full">
-                  <Button variant="primary" size="sm" className="w-full">
-                    <Share2 className="w-3.5 h-3.5 mr-1" /> Share QR Code
-                  </Button>
-                </a>
+                <img src={qrUrl} alt="Payment QR" className="w-28 h-28 object-contain border rounded-lg" />
+                <Button variant="primary" size="sm" className="w-full" onClick={() => window.open(qrUrl, '_blank')}>
+                  <Share2 className="w-3.5 h-3.5 mr-1" /> Share QR Code
+                </Button>
               </>
             ) : (
               <p className="text-[11px] text-slate-400 italic text-center">No QR code on file for this account</p>

@@ -34,9 +34,10 @@ export const BankSummary: React.FC = () => {
   const [unlockReason, setUnlockReason] = useState('');
 
   const [formData, setFormData] = useState({
-    bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', opening_balance: 0, qr_code_path: '',
+    bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '',
   });
   const [uploadingQR, setUploadingQR] = useState(false);
+  const [ifscLookupLoading, setIfscLookupLoading] = useState(false);
 
   const handleQRUpload = async (file: File | null) => {
     if (!file) return;
@@ -47,6 +48,35 @@ export const BankSummary: React.FC = () => {
       setFormData((prev) => ({ ...prev, qr_code_path: path }));
     } else {
       toast.error('Failed to upload QR code. Please try again.');
+    }
+  };
+
+  // Auto-fills Bank Name / Branch / Location once a valid 11-char IFSC is
+  // entered, via the free public Razorpay IFSC lookup (no API key required).
+  // Fields stay editable afterward — this is a convenience prefill, not a lock.
+  const handleIfscChange = async (rawValue: string) => {
+    const ifsc = rawValue.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+    setFormData((prev) => ({ ...prev, ifsc_code: ifsc }));
+    if (ifsc.length !== 11) return;
+
+    setIfscLookupLoading(true);
+    try {
+      const res = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+      if (!res.ok) {
+        toast.error('IFSC code not found. Please check it, or fill in the bank details manually.');
+        return;
+      }
+      const data = await res.json();
+      setFormData((prev) => ({
+        ...prev,
+        bank_name: data.BANK || prev.bank_name,
+        branch: data.BRANCH || prev.branch,
+        location: [data.CITY, data.STATE].filter(Boolean).join(', ') || prev.location,
+      }));
+    } catch {
+      toast.error('Could not reach the IFSC lookup service. Please fill in the bank details manually.');
+    } finally {
+      setIfscLookupLoading(false);
     }
   };
   const [transferData, setTransferData] = useState({
@@ -112,7 +142,7 @@ export const BankSummary: React.FC = () => {
     const res = await fetchAPI<BankAccount>('/bank-accounts', { method: 'POST', body: JSON.stringify(formData) });
     if (res.success) {
       setShowAddModal(false);
-      setFormData({ bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', opening_balance: 0, qr_code_path: '' });
+      setFormData({ bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '' });
       toast.success('Bank account added.');
       loadAll();
     } else {
@@ -566,56 +596,89 @@ export const BankSummary: React.FC = () => {
       {/* Add Bank Account Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Add Trust Bank Account</h3>
-            <form onSubmit={handleCreate} className="space-y-3 text-sm">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Bank Name</label>
-                <input type="text" required placeholder="e.g. State Bank of India (SBI)"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} />
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5">
+            <div className="flex items-center gap-3 border-b pb-4">
+              <div className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <Landmark className="w-5 h-5" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Account Name / Title</label>
-                <input type="text" required placeholder="e.g. Trust Primary Operating Account"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  value={formData.account_name} onChange={(e) => setFormData({ ...formData, account_name: e.target.value })} />
+                <h3 className="text-lg font-bold text-slate-900">Add Trust Bank Account</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Enter the IFSC code first to auto-fill the bank's details</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Number (Masked)</label>
-                  <input type="text" required placeholder="**** **** 1234"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    value={formData.account_number_masked} onChange={(e) => setFormData({ ...formData, account_number_masked: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">IFSC Code</label>
-                  <input type="text" required placeholder="SBIN0001234"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 uppercase"
-                    value={formData.ifsc_code} onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })} />
-                </div>
+            </div>
+
+            <form onSubmit={handleCreate} className="space-y-5 text-sm">
+              <div className="grid grid-cols-2 gap-5 items-start">
+                <Card title="Bank Identification">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Account Number (Masked) *</label>
+                        <input type="text" required placeholder="**** **** 1234"
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                          value={formData.account_number_masked} onChange={(e) => setFormData({ ...formData, account_number_masked: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">IFSC Code *</label>
+                        <div className="relative">
+                          <input type="text" required placeholder="SBIN0001234" maxLength={11}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 uppercase font-mono"
+                            value={formData.ifsc_code} onChange={(e) => handleIfscChange(e.target.value)} />
+                          {ifscLookupLoading && <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
+                        </div>
+                      </div>
+                    </div>
+                    {ifscLookupLoading && (
+                      <p className="text-[11px] text-emerald-700 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Looking up bank details...</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Bank Name *</label>
+                        <input type="text" required placeholder="e.g. State Bank of India (SBI)"
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                          value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Branch Name *</label>
+                        <input type="text" required placeholder="Main Branch"
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                          value={formData.branch} onChange={(e) => setFormData({ ...formData, branch: e.target.value })} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Location</label>
+                      <input type="text" placeholder="City, State"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                        value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card title="Account Details">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Account Name / Title *</label>
+                      <input type="text" required placeholder="e.g. Trust Primary Operating Account"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                        value={formData.account_name} onChange={(e) => setFormData({ ...formData, account_name: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Opening Balance (₹) *</label>
+                      <input type="number" step="0.01" required placeholder="100000"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
+                        value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">UPI / Bank QR Code (optional)</label>
+                      <label className="flex items-center justify-center gap-1.5 px-3 py-2 border rounded-lg bg-white text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50 w-full">
+                        {uploadingQR ? 'Uploading...' : formData.qr_code_path ? <><Check className="w-3.5 h-3.5 text-emerald-600" /> Uploaded</> : <><Upload className="w-3.5 h-3.5" /> Upload QR Code Image</>}
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleQRUpload(e.target.files?.[0] ?? null)} />
+                      </label>
+                    </div>
+                  </div>
+                </Card>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Branch Name</label>
-                  <input type="text" required placeholder="Main Branch"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    value={formData.branch} onChange={(e) => setFormData({ ...formData, branch: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Opening Balance (₹)</label>
-                  <input type="number" step="0.01" required placeholder="100000"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">UPI / Bank QR Code (optional)</label>
-                <label className="flex items-center justify-center gap-1.5 px-3 py-2 border rounded-lg bg-white text-xs font-medium text-slate-600 cursor-pointer hover:bg-slate-50 w-full">
-                  {uploadingQR ? 'Uploading...' : formData.qr_code_path ? <><Check className="w-3.5 h-3.5 text-emerald-600" /> Uploaded</> : <><Upload className="w-3.5 h-3.5" /> Upload QR Code Image</>}
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleQRUpload(e.target.files?.[0] ?? null)} />
-                </label>
-              </div>
+
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
                 <Button type="submit" variant="primary">Save Bank Account</Button>

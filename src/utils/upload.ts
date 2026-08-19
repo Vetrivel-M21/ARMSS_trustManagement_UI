@@ -9,6 +9,26 @@ export async function uploadFile(file: File): Promise<string | null> {
   return res.success && res.data ? res.data.path : null;
 }
 
+/** /uploads requires a valid session (donor KYC docs, bank QR codes) — plain
+ * <img src>/<a href> never send this, only fetch() with an explicit header. */
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem('auth_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Fetches a (now auth-protected) asset URL and returns a local blob: object
+ * URL for rendering in an <img>/opening in a new tab, or null on failure.
+ * Caller is responsible for revoking the returned URL when done with it. */
+export async function fetchAuthedBlobUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { cache: 'no-store', headers: authHeaders() });
+    if (!res.ok) return null;
+    return URL.createObjectURL(await res.blob());
+  } catch {
+    return null;
+  }
+}
+
 /** Forces a real browser download of a same-origin/cross-origin file URL.
  * A plain `<a download href={url}>` is silently ignored by browsers when the
  * URL is cross-origin (frontend on :5173, files served from the backend on
@@ -18,7 +38,7 @@ export async function uploadFile(file: File): Promise<string | null> {
  * no-cors response from an on-screen <img> preview, which would otherwise
  * fail a normal cors-mode fetch (see voucherPdf.ts's loadImage). */
 export async function downloadFile(url: string, filename: string): Promise<void> {
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(url, { cache: 'no-store', headers: authHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch file (status ${res.status})`);
   const blob = await res.blob();
   const objectUrl = URL.createObjectURL(blob);
