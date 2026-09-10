@@ -16,6 +16,9 @@ export async function fetchAPI<T>(
   options: RequestInit = {}
 ): Promise<APIResponse<T>> {
   const token = localStorage.getItem('auth_token');
+  // sessionStorage, not localStorage — scoped to this one tab, so a sibling
+  // tab in the same browser can't inherit it just by sharing an origin.
+  const deviceToken = sessionStorage.getItem('device_token');
   const headers = new Headers(options.headers || {});
 
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -24,6 +27,13 @@ export async function fetchAPI<T>(
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  // Set only by the MIS Desktop app's Trust Portal WebView (via a JS
+  // injection before this page's own scripts run) — a plain browser never
+  // has this, so every API call 403s outside the desktop app.
+  if (deviceToken) {
+    headers.set('X-Device-Token', deviceToken);
   }
 
   try {
