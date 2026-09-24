@@ -15,7 +15,7 @@ export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<APIResponse<T>> {
-  const token = localStorage.getItem('auth_token');
+  const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
   const headers = new Headers(options.headers || {});
 
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {

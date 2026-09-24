@@ -3,7 +3,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { StatusIndicator } from '../components/ui/StatusIndicator';
 import { ClosingConfirmationModal } from '../components/closing/ClosingConfirmationModal';
-import { Save, RefreshCw, AlertCircle, CheckCircle2, Eye, Lock, Unlock, ShieldAlert } from 'lucide-react';
+import { Save, RefreshCw, AlertCircle, Eye, Lock, CheckCircle2, Unlock, ShieldAlert } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { CASH_DENOMINATIONS } from '../constants';
@@ -333,23 +333,34 @@ export const CashSummary: React.FC = () => {
       {/* Transaction Details Modal (Spec §17 Drilldown) */}
       {selectedGroup && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 space-y-4">
-            <div className="flex justify-between items-start border-b pb-3">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col p-6 space-y-4">
+            <div className="flex justify-between items-start border-b pb-3 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">{selectedGroup.label}</h3>
-                <p className="text-xs text-slate-500">Underlying Transactions ({selectedGroup.count} donations | Total: ₹{selectedGroup.total_amount})</p>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                  Cash Inflow Breakdown
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-1">{selectedGroup.label}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Underlying Transactions ({selectedGroup.count} entries) · Total: <span className="font-mono font-bold text-slate-900">₹{Number(selectedGroup.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </p>
               </div>
               <Button variant="outline" size="sm" onClick={() => setSelectedGroup(null)}>Close</Button>
             </div>
 
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 max-h-[60vh]">
               {selectedGroup.donations.map((don: any) => (
-                <div key={don.id} className="p-3 bg-slate-50 rounded-lg border flex justify-between items-center text-xs">
-                  <div>
-                    <span className="font-mono font-bold text-emerald-700">{don.donation_number}</span>
-                    <p className="font-semibold text-slate-900">{don.donor?.full_name || 'Anonymous'}</p>
+                <div key={don.id} className="p-3.5 bg-slate-50 hover:bg-slate-100/70 transition-colors rounded-xl border border-slate-200 flex justify-between items-start text-xs gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-sm text-slate-900">{don.donor?.full_name || 'Anonymous'}</p>
+                      {don.donation_number && (
+                        <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono font-semibold text-[10px]">
+                          {don.donation_number}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <p className="text-slate-500 text-[11px]">{don.purpose}</p>
+                      <p className="text-slate-600 font-medium text-xs">{don.purpose}</p>
                       {don.scheme && (
                         <>
                           <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${don.scheme.food_type === 'VEG' ? 'bg-emerald-100 text-emerald-800' : don.scheme.food_type === 'NON_VEG' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500'}`}>
@@ -360,9 +371,18 @@ export const CashSummary: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <span className="font-mono font-bold text-slate-900 text-sm">₹{don.amount.toLocaleString('en-IN')}</span>
+                  <span className="font-mono font-bold text-base text-emerald-700 shrink-0">
+                    ₹{Number(don.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               ))}
+            </div>
+
+            <div className="pt-3 border-t flex justify-between items-center text-xs font-semibold text-slate-600 shrink-0">
+              <span>Overall Total:</span>
+              <span className="text-base font-bold font-mono text-emerald-700">
+                ₹{Number(selectedGroup.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </div>
@@ -385,26 +405,46 @@ export const CashSummary: React.FC = () => {
       {/* Expense Details Modal (debit-side drilldown) */}
       {selectedExpenseGroup && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 space-y-4">
-            <div className="flex justify-between items-start border-b pb-3">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col p-6 space-y-4">
+            <div className="flex justify-between items-start border-b pb-3 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">{selectedExpenseGroup.category}</h3>
-                <p className="text-xs text-slate-500">Underlying Expenses ({selectedExpenseGroup.count} entries | Total: ₹{selectedExpenseGroup.total_amount})</p>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800">
+                  Cash Outflow Ledger Breakdown
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-1">{selectedExpenseGroup.category}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Underlying Outflow Entries ({selectedExpenseGroup.count} entries) · Total: <span className="font-mono font-bold text-slate-900">₹{Number(selectedExpenseGroup.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </p>
               </div>
               <Button variant="outline" size="sm" onClick={() => setSelectedExpenseGroup(null)}>Close</Button>
             </div>
 
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 max-h-[60vh]">
               {selectedExpenseGroup.expenses.map((exp: any) => (
-                <div key={exp.id} className="p-3 bg-slate-50 rounded-lg border flex justify-between items-center text-xs">
-                  <div>
-                    <span className="font-mono font-bold text-rose-700">{exp.expense_number}</span>
-                    <p className="font-semibold text-slate-900">{exp.payee_name}</p>
-                    <p className="text-slate-500 text-[11px]">{exp.description || 'No description'}</p>
+                <div key={exp.id} className="p-3.5 bg-slate-50 hover:bg-slate-100/70 transition-colors rounded-xl border border-slate-200 flex justify-between items-start text-xs gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-sm text-slate-900">{exp.payee_name}</p>
+                      {exp.expense_number && (
+                        <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono font-semibold text-[10px]">
+                          {exp.expense_number}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 font-medium text-xs">{exp.description || 'No description'}</p>
                   </div>
-                  <span className="font-mono font-bold text-slate-900 text-sm">₹{exp.amount.toLocaleString('en-IN')}</span>
+                  <span className="font-mono font-bold text-base text-rose-700 shrink-0">
+                    ₹{Number(exp.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               ))}
+            </div>
+
+            <div className="pt-3 border-t flex justify-between items-center text-xs font-semibold text-slate-600 shrink-0">
+              <span>Overall Ledger Total:</span>
+              <span className="text-base font-bold font-mono text-rose-700">
+                ₹{Number(selectedExpenseGroup.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </div>

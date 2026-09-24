@@ -36,14 +36,14 @@ export const BankSummary: React.FC = () => {
   const [unlockReason, setUnlockReason] = useState('');
 
   const [formData, setFormData] = useState({
-    bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '',
+    bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '', upi_id: '',
   });
   const [uploadingQR, setUploadingQR] = useState(false);
   const [ifscLookupLoading, setIfscLookupLoading] = useState(false);
   const [addAccountErrors, setAddAccountErrors] = useState<Record<string, string | undefined>>({});
   const [addAccountSubmitting, setAddAccountSubmitting] = useState(false);
   const [editData, setEditData] = useState({
-    bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', qr_code_path: '', is_active: true,
+    bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', qr_code_path: '', upi_id: '', is_active: true,
   });
   const [editErrors, setEditErrors] = useState<Record<string, string | undefined>>({});
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -169,7 +169,7 @@ export const BankSummary: React.FC = () => {
     setAddAccountSubmitting(false);
     if (res.success) {
       setShowAddModal(false);
-      setFormData({ bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '' });
+      setFormData({ bank_name: '', account_name: '', account_number_masked: '', ifsc_code: '', branch: '', location: '', opening_balance: 0, qr_code_path: '', upi_id: '' });
       setAddAccountErrors({});
       toast.success('Bank account added.');
       loadAll();
@@ -188,6 +188,7 @@ export const BankSummary: React.FC = () => {
       branch: account.branch,
       location: account.location ?? '',
       qr_code_path: account.qr_code_path ?? '',
+      upi_id: account.upi_id ?? '',
       is_active: account.is_active,
     });
     setEditErrors({});
@@ -394,7 +395,7 @@ export const BankSummary: React.FC = () => {
           <table className="w-full text-left text-sm">
             <thead className="bg-emerald-50 text-emerald-800 text-[11px] uppercase tracking-wider border-b border-emerald-100">
               <tr>
-                <th className="px-3 py-2">Purpose</th>
+                <th className="px-3 py-2">Purpose / Ledger</th>
                 <th className="px-3 py-2">Food Type</th>
                 <th className="px-3 py-2">Meal Type</th>
                 <th className="px-3 py-2 text-center">Count</th>
@@ -449,7 +450,7 @@ export const BankSummary: React.FC = () => {
           <table className="w-full text-left text-sm">
             <thead className="bg-rose-50 text-rose-800 text-[11px] uppercase tracking-wider border-b border-rose-100">
               <tr>
-                <th className="px-3 py-2">Category</th>
+                <th className="px-3 py-2">Ledger / Category</th>
                 <th className="px-3 py-2 text-center">Count</th>
                 <th className="px-3 py-2 text-right">Amount</th>
                 <th className="px-3 py-2 text-center">Details</th>
@@ -527,7 +528,7 @@ export const BankSummary: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         <Landmark className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="font-semibold text-slate-800 leading-tight">{a.bank_name}</p>
                             <span
                               className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
@@ -537,7 +538,10 @@ export const BankSummary: React.FC = () => {
                               {a.is_active ? 'Active' : 'Deactivated'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 leading-tight">{a.account_name} · {a.account_number_masked}</p>
+                          <p className="text-[11px] text-slate-400 leading-tight">
+                            {a.account_name} · {a.account_number_masked}
+                            {a.upi_id && <span className="ml-1 text-slate-500 font-mono">· UPI: {a.upi_id}</span>}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -584,7 +588,7 @@ export const BankSummary: React.FC = () => {
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <div className="flex justify-center gap-1.5">
+                      <div className="flex justify-center gap-1.5 flex-wrap">
                         {isAdmin && (
                           <Button variant="outline" size="sm" onClick={() => openEdit(a)}>
                             <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
@@ -701,30 +705,47 @@ export const BankSummary: React.FC = () => {
       {/* Breakdown drilldown — every contributing donor/payee behind one grouped row */}
       {selectedRow && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 space-y-4">
-            <div className="flex justify-between items-start border-b pb-3">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col p-6 space-y-4">
+            <div className="flex justify-between items-start border-b pb-3 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">{selectedRow.row.label}</h3>
-                <p className="text-xs text-slate-500">
-                  {selectedRow.row.count} {selectedRow.type === 'CREDIT' ? 'donor entr' : 'expense entr'}{selectedRow.row.count === 1 ? 'y' : 'ies'} | Total: {fmt(selectedRow.row.total_amount)}
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${selectedRow.type === 'CREDIT' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                  {selectedRow.type === 'CREDIT' ? 'Credit Breakdown' : 'Debit Ledger Breakdown'}
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-1">{selectedRow.row.label}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {selectedRow.row.count} {selectedRow.type === 'CREDIT' ? 'donor/credit entr' : 'voucher/expense entr'}{selectedRow.row.count === 1 ? 'y' : 'ies'} under this ledger · Total: <span className="font-mono font-bold text-slate-900">{fmt(selectedRow.row.total_amount)}</span>
                 </p>
               </div>
               <Button variant="outline" size="sm" onClick={() => setSelectedRow(null)}>Close</Button>
             </div>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+
+            <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 max-h-[60vh]">
               {selectedRow.row.entries.map((e, idx) => (
-                <div key={idx} className="p-3 bg-slate-50 rounded-lg border flex justify-between items-center text-xs">
-                  <div>
-                    <p className="font-semibold text-slate-900">{e.name}</p>
-                    <p className="text-slate-500 text-[11px]">{e.purpose}</p>
-                    {e.reference_number && <p className="text-slate-400 text-[10px] font-mono">Ref: {e.reference_number}</p>}
-                    <p className="text-slate-400 text-[10px]">{e.business_date}</p>
+                <div key={idx} className="p-3.5 bg-slate-50 hover:bg-slate-100/70 transition-colors rounded-xl border border-slate-200 flex justify-between items-start text-xs gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-sm text-slate-900">{e.name}</p>
+                      {e.reference_number && (
+                        <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-mono font-semibold text-[10px]">
+                          {e.reference_number}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 font-medium text-xs">{e.purpose}</p>
+                    <p className="text-slate-400 text-[11px] font-mono">Date: {e.business_date}</p>
                   </div>
-                  <span className={`font-mono font-bold text-sm ${selectedRow.type === 'CREDIT' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  <span className={`font-mono font-bold text-base shrink-0 ${selectedRow.type === 'CREDIT' ? 'text-emerald-700' : 'text-rose-700'}`}>
                     {fmt(e.amount)}
                   </span>
                 </div>
               ))}
+            </div>
+
+            <div className="pt-3 border-t flex justify-between items-center text-xs font-semibold text-slate-600 shrink-0">
+              <span>Overall Ledger Total:</span>
+              <span className={`text-base font-bold font-mono ${selectedRow.type === 'CREDIT' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {fmt(selectedRow.row.total_amount)}
+              </span>
             </div>
           </div>
         </div>
@@ -805,6 +826,16 @@ export const BankSummary: React.FC = () => {
                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
                         value={formData.opening_balance} onChange={(e) => { setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 }); setAddAccountErrors((prev) => ({ ...prev, opening_balance: undefined })); }} />
                       {addAccountErrors.opening_balance && <p className="text-xs text-rose-600 font-medium mt-1">{addAccountErrors.opening_balance}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">UPI ID / VPA (e.g. trust@sbi)</label>
+                      <input
+                        type="text"
+                        placeholder="trustname@sbi"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-xs"
+                        value={formData.upi_id}
+                        onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">UPI / Bank QR Code (optional)</label>
@@ -948,6 +979,16 @@ export const BankSummary: React.FC = () => {
                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                         value={editData.account_name} onChange={(e) => { setEditData({ ...editData, account_name: e.target.value }); setEditErrors((prev) => ({ ...prev, account_name: undefined })); }} />
                       {editErrors.account_name && <p className="text-xs text-rose-600 font-medium mt-1">{editErrors.account_name}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">UPI ID / VPA (e.g. trust@sbi)</label>
+                      <input
+                        type="text"
+                        placeholder="trustname@sbi"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-xs"
+                        value={editData.upi_id}
+                        onChange={(e) => setEditData({ ...editData, upi_id: e.target.value })}
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>

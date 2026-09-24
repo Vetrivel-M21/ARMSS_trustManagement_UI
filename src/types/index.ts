@@ -43,6 +43,8 @@ export interface BankAccount {
   location?: string;
   opening_balance: number;
   qr_code_path?: string;
+  upi_id?: string;
+  is_app_donation_account?: boolean;
   current_balance: number;
   is_active: boolean;
   created_at?: string;
@@ -113,6 +115,10 @@ export interface Donation {
   amount: number;
   payment_mode: 'CASH' | 'BANK';
   purpose: string;
+  category?: string;
+  reason?: string;
+  source?: string;
+  verification_status?: string;
   scheme_id?: number;
   scheme?: Scheme;
   event_type?: string;
@@ -143,8 +149,15 @@ export interface Expense {
   description?: string;
   reference_number?: string;
   attachment_path?: string;
-  status: string;
+  status: 'PENDING' | 'APPROVED' | 'ACTIVE' | 'REJECTED' | string;
+  created_by?: number;
+  created_by_user?: { id: number; full_name: string; username: string };
+  approved_by?: number;
+  approved_by_user?: { id: number; full_name: string; username: string };
+  approved_at?: string;
+  rejection_reason?: string;
   created_at?: string;
+  voucher?: Voucher;
 }
 
 export interface DailyClosing {
@@ -161,10 +174,41 @@ export interface DailyClosing {
   closed_at?: string;
 }
 
+export interface Ledger {
+  id: number;
+  ledger_no: string;
+  ledger_name: string;
+  description?: string;
+  is_active: boolean;
+  created_at?: string;
+  titles_count?: number;
+}
+
+export interface VoucherTitle {
+  id: number;
+  title_no: string;
+  title: string;
+  voucher_type: 'INCOME' | 'EXPENSE' | 'ASSET' | 'LIABILITY' | 'SELF_TRANSFER';
+  ledger_id: number;
+  ledger?: Ledger;
+  description?: string;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export type VoucherType =
+  | 'INCOME'
+  | 'EXPENSE'
+  | 'ASSET'
+  | 'LIABILITY'
+  | 'SELF_TRANSFER'
+  | 'DONATION_RECEIPT'
+  | 'EXPENSE_VOUCHER';
+
 export interface Voucher {
   id: number;
   voucher_number: string;
-  voucher_type: 'DONATION_RECEIPT' | 'EXPENSE_VOUCHER';
+  voucher_type: VoucherType;
   business_date: string;
   source_type: string;
   source_id: number;
@@ -174,7 +218,21 @@ export interface Voucher {
   payment_mode: 'CASH' | 'BANK';
   status: string;
   created_at?: string;
-  // Enrichment returned only by GET /vouchers/:id
+  ledger_id?: number;
+  ledger?: Ledger;
+  title_id?: number;
+  title?: VoucherTitle;
+  bank_account_id?: number;
+  bank_account?: BankAccount | null;
+  from_bank_account_id?: number;
+  from_bank_account?: BankAccount | null;
+  to_bank_account_id?: number;
+  to_bank_account?: BankAccount | null;
+  details?: string;
+  attachment_path?: string;
+  approved_at?: string;
+  rejection_reason?: string;
+  // Enrichment returned by GET /vouchers/:id
   purpose?: string;
   reference_number?: string;
   category?: string;
@@ -182,7 +240,26 @@ export interface Voucher {
   meal_type?: string;
   donor_phone?: string;
   donor_father_name?: string;
-  bank_account?: BankAccount | null;
+}
+
+export interface VoucherReportSummary {
+  total_income: number;
+  total_expense: number;
+  net_cash_flow: number;
+  total_assets: number;
+  total_liabilities: number;
+  total_self_transfers: number;
+  voucher_count: number;
+}
+
+export interface LedgerSummaryItem {
+  ledger_id: number;
+  ledger_no: string;
+  ledger_name: string;
+  total_debit: number;
+  total_credit: number;
+  net_amount: number;
+  count: number;
 }
 
 export interface UnlockRequest {
@@ -229,6 +306,8 @@ export interface BankTransaction {
   reference_number?: string;
   source_type: string;
   source_id: number;
+  source_channel?: string;
+  is_mobile_app?: boolean;
   description?: string;
   created_at?: string;
   donor_name?: string;

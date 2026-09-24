@@ -128,9 +128,16 @@ export const BankTransactions: React.FC = () => {
                   <tr key={t.id} className="hover:bg-emerald-50/40">
                     <td className="px-4 py-3 text-xs text-slate-500">{String(t.business_date).substring(0, 10)}</td>
                     <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 bg-emerald-50 text-emerald-700">
-                        <ArrowDownCircle className="w-3 h-3" /> {t.category}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 bg-emerald-50 text-emerald-700">
+                          <ArrowDownCircle className="w-3 h-3" /> {t.category}
+                        </span>
+                        {(t.source_channel === 'MOBILE_APP' || t.is_mobile_app) && (
+                          <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-purple-100 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
+                            📱 From Mobile App
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs font-mono text-slate-500">{t.reference_number || '—'}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{t.description || '—'}</td>

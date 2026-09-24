@@ -5,7 +5,7 @@ import {
   LayoutDashboard,
   Users,
   HeartHandshake,
-  Receipt,
+  BookOpen,
   FileCheck2,
   BarChart3,
   Unlock,
@@ -13,7 +13,7 @@ import {
   ListOrdered,
   UserCog,
   Calendar,
-  Tag,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -26,13 +26,13 @@ export const Sidebar: React.FC = () => {
     { to: '/schemes', label: 'Scheme Configuration', icon: Layers },
     { to: '/donations', label: 'Donations', icon: HeartHandshake },
     { to: '/bank/transactions', label: 'Bank Transactions Ledger', icon: ListOrdered },
-    { to: '/expenses', label: 'Expenses', icon: Receipt },
+    { to: '/ledgers', label: 'Ledgers & Titles', icon: BookOpen },
     { to: '/vouchers', label: 'Vouchers & Receipts', icon: FileCheck2 },
     { to: '/reports', label: 'Reports & Comparison', icon: BarChart3 },
     { to: '/donor-summary', label: 'Donor Summary', icon: Calendar },
+    ...(isAdmin ? [{ to: '/admin/voucher-approvals', label: 'Voucher Approvals', icon: ShieldCheck }] : []),
     ...(isAdmin ? [{ to: '/admin/unlock', label: 'Admin Unlock & Audit', icon: Unlock }] : []),
     ...(isAdmin ? [{ to: '/admin/users', label: 'User Management', icon: UserCog }] : []),
-    ...(isAdmin ? [{ to: '/admin/expense-categories', label: 'Expense Categories', icon: Tag }] : []),
   ];
 
   return (

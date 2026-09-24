@@ -10,20 +10,24 @@ interface AuthContextType extends AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const getStoredToken = () => sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+
   const [state, setState] = useState<AuthState>({
     user: null,
-    token: localStorage.getItem('auth_token'),
+    token: getStoredToken(),
     isAuthenticated: false,
     isLoading: true,
   });
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('auth_token');
+      const token = getStoredToken();
       if (!token) {
         setState((prev) => ({ ...prev, isLoading: false }));
         return;
       }
+      sessionStorage.setItem('auth_token', token);
+      localStorage.removeItem('auth_token');
 
       const res = await fetchAPI<User>('/auth/me');
       if (res.success && res.data) {
@@ -34,6 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isLoading: false,
         });
       } else {
+        sessionStorage.removeItem('auth_token');
         localStorage.removeItem('auth_token');
         setState({
           user: null,
@@ -49,6 +54,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = (token: string, user: User) => {
     localStorage.setItem('auth_token', token);
+    sessionStorage.setItem('auth_token', token);
+    localStorage.removeItem('auth_token');
     setState({
       user,
       token,
@@ -59,6 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     await fetchAPI('/auth/logout', { method: 'POST' });
+    sessionStorage.removeItem('auth_token');
     localStorage.removeItem('auth_token');
     setState({
       user: null,

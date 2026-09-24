@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { ShieldCheck } from 'lucide-react';
+import { Footer } from '../components/common/Footer';
 
 export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -86,6 +87,8 @@ export const Login: React.FC = () => {
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
           <span>Server-Side Closed-Day Protection & Audit Enabled</span>
         </div>
+
+        <Footer variant="dark" className="border-none bg-transparent pt-1" />
       </div>
     </div>
   );

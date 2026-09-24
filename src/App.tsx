@@ -5,6 +5,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { AppRoutes } from './routes/AppRoutes';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { GatewayGuard } from './components/GatewayGuard';
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,11 +22,13 @@ export const App: React.FC = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <AuthProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </AuthProvider>
+          <GatewayGuard>
+            <AuthProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </AuthProvider>
+          </GatewayGuard>
         </ToastProvider>
       </QueryClientProvider>
     </ErrorBoundary>

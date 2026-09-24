@@ -2,9 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, RefreshCw, Receipt, Banknote, Landmark, Download, Upload, Check, FileText } from 'lucide-react';
+import {
+  Plus,
+  RefreshCw,
+  Receipt,
+  Banknote,
+  Landmark,
+  Download,
+  Upload,
+  Check,
+  FileText,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import { isPositiveAmount, isRequired, isWithinLength, hasErrors } from '../utils/validation';
@@ -24,6 +39,9 @@ const emptyExpenseForm = () => ({
 
 export const Expenses: React.FC = () => {
   const toast = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -35,6 +53,8 @@ export const Expenses: React.FC = () => {
   const [formData, setFormData] = useState(emptyExpenseForm());
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const pendingCount = expenses.filter((e) => e.status === 'PENDING').length;
 
   const handleAttachmentUpload = async (file: File | null) => {
     if (!file) return;
@@ -96,7 +116,7 @@ export const Expenses: React.FC = () => {
       bank_account_id: formData.bank_account_id ? Number(formData.bank_account_id) : undefined,
     };
 
-    const res = await fetchAPI<{ expense: Expense; voucher: Voucher }>('/expenses', {
+    const res = await fetchAPI<{ expense: Expense }>('/expenses', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -104,11 +124,10 @@ export const Expenses: React.FC = () => {
 
     if (res.success && res.data) {
       setShowAddModal(false);
-      setActiveVoucher(res.data.voucher);
       setFormData(emptyExpenseForm());
       setErrors({});
       loadData();
-      toast.success('Expense recorded and voucher issued.');
+      toast.success('Expense recorded and submitted for Admin approval.');
     } else {
       toast.error(res.error?.message || 'Failed to record expense');
     }
@@ -119,9 +138,24 @@ export const Expenses: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Expense Register & Outflow Ledgers</h2>
-          <p className="text-xs text-slate-500">Record cash and bank outflow expenses, associate vendors/payees, and issue vouchers</p>
+          <p className="text-xs text-slate-500">
+            Record cash and bank outflow expenses. Expenses require Admin approval before funds are released and vouchers issued.
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Link to="/admin/expense-approvals">
+              <Button variant="outline" size="sm" className="relative">
+                <ShieldCheck className="w-4 h-4 mr-1 text-emerald-600" />
+                Approvals
+                {pendingCount > 0 && (
+                  <span className="ml-1.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                    {pendingCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+          )}
           <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
@@ -142,31 +176,91 @@ export const Expenses: React.FC = () => {
                 <th className="px-4 py-3">Payee / Vendor</th>
                 <th className="px-4 py-3">Payment Mode</th>
                 <th className="px-4 py-3 font-mono text-right">Amount (₹)</th>
+                <th className="px-4 py-3 text-center">Status</th>
+                <th className="px-4 py-3 text-center">Voucher</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-800">
+            <tbody className="divide-y divide-slate-100 text-slate-800 text-xs">
               {expenses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm">
                     {isLoading ? 'Loading expenses...' : 'No expense entries created yet'}
                   </td>
                 </tr>
               ) : (
                 expenses.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-rose-700">{e.expense_number}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{e.business_date ? String(e.business_date).substring(0, 10) : ''}</td>
-                    <td className="px-4 py-3">
-                      <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded font-semibold">{e.category}</span>
+                  <tr key={e.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-4 py-3 font-mono font-semibold text-rose-700">{e.expense_number}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      {e.business_date ? String(e.business_date).substring(0, 10) : ''}
                     </td>
-                    <td className="px-4 py-3 font-medium">{e.payee_name}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 ${e.payment_mode === 'CASH' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                      <span className="bg-slate-100 text-slate-700 text-[11px] px-2 py-0.5 rounded font-semibold whitespace-nowrap">
+                        {e.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-900">{e.payee_name}</p>
+                      {e.description && (
+                        <p className="text-[11px] text-slate-500 max-w-xs truncate" title={e.description}>
+                          {e.description}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className={`text-[11px] px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 ${
+                          e.payment_mode === 'CASH'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
                         {e.payment_mode === 'CASH' ? <Banknote className="w-3 h-3" /> : <Landmark className="w-3 h-3" />}
                         {e.payment_mode}
                       </span>
+                      {e.payment_mode === 'BANK' && e.bank_account && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">{e.bank_account.bank_name}</p>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-700">₹{e.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-rose-700 whitespace-nowrap">
+                      ₹{Number(e.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      {e.status === 'PENDING' && (
+                        <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> PENDING
+                        </span>
+                      )}
+                      {(e.status === 'APPROVED' || e.status === 'ACTIVE') && (
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> APPROVED
+                        </span>
+                      )}
+                      {e.status === 'REJECTED' && (
+                        <span
+                          className="bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                          title={e.rejection_reason || 'Rejected by Admin'}
+                        >
+                          <XCircle className="w-3 h-3" /> REJECTED
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      {(e.status === 'APPROVED' || e.status === 'ACTIVE') && e.voucher ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setActiveVoucher(e.voucher!)}
+                          className="text-[11px] py-0.5 px-2"
+                        >
+                          <Receipt className="w-3.5 h-3.5 mr-1 text-emerald-700" /> View Voucher
+                        </Button>
+                      ) : e.status === 'PENDING' ? (
+                        <span className="text-[11px] text-amber-700 font-medium">Pending Approval</span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

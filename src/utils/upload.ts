@@ -12,7 +12,7 @@ export async function uploadFile(file: File): Promise<string | null> {
 /** /uploads requires a valid session (donor KYC docs, bank QR codes) — plain
  * <img src>/<a href> never send this, only fetch() with an explicit header. */
 function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('auth_token');
+  const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
