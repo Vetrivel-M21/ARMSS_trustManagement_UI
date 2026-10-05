@@ -16,6 +16,8 @@ import { Reports } from '../pages/Reports';
 import { AdminUnlock } from '../pages/AdminUnlock';
 import { UserManagement } from '../pages/UserManagement';
 import { VoucherApprovals } from '../pages/VoucherApprovals';
+import { TrustHomesConfig } from '../pages/TrustHomesConfig';
+import { Branches } from '../pages/Branches';
 import { NotFound } from '../pages/NotFound';
 
 export const AppRoutes: React.FC = () => {
@@ -39,6 +41,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="/reports" element={<Reports />} />
 
           <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+            <Route path="/admin/branches" element={<Branches />} />
+            <Route path="/admin/trust-homes" element={<TrustHomesConfig />} />
             <Route path="/admin/unlock" element={<AdminUnlock />} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/voucher-approvals" element={<VoucherApprovals />} />

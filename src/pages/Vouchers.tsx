@@ -26,6 +26,7 @@ import {
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { useBranch } from '../context/BranchContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import type {
@@ -42,6 +43,7 @@ export const Vouchers: React.FC = () => {
   const toast = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const { activeBranchId } = useBranch();
 
   // State
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -128,7 +130,7 @@ export const Vouchers: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [filterType, filterLedger, filterTitle, filterMode, filterStatus, fromDate, toDate]);
+  }, [filterType, filterLedger, filterTitle, filterMode, filterStatus, fromDate, toDate, activeBranchId]);
 
   // When voucher type changes in Create modal, reset title/ledger and filter matching titles
   const matchingTitles = titles.filter((t) => t.voucher_type === voucherType);
@@ -684,7 +686,14 @@ export const Vouchers: React.FC = () => {
               ) : (
                 filteredVouchers.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-emerald-700">{v.voucher_number}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-mono text-xs font-semibold text-emerald-700">{v.voucher_number}</div>
+                      {v.branch && (
+                        <div className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                          {v.branch.name}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`text-[11px] px-2 py-0.5 rounded font-semibold border ${

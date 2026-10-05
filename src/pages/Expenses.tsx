@@ -20,6 +20,7 @@ import {
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { useBranch } from '../context/BranchContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import { isPositiveAmount, isRequired, isWithinLength, hasErrors } from '../utils/validation';
@@ -41,6 +42,7 @@ export const Expenses: React.FC = () => {
   const toast = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const { activeBranchId } = useBranch();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -87,7 +89,7 @@ export const Expenses: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeBranchId]);
 
   const validateForm = (): Record<string, string | undefined> => ({
     amount: isPositiveAmount(formData.amount, 'Expense amount'),
@@ -190,7 +192,14 @@ export const Expenses: React.FC = () => {
               ) : (
                 expenses.map((e) => (
                   <tr key={e.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-4 py-3 font-mono font-semibold text-rose-700">{e.expense_number}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-mono font-semibold text-rose-700">{e.expense_number}</div>
+                      {e.branch && (
+                        <div className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                          {e.branch.name}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                       {e.business_date ? String(e.business_date).substring(0, 10) : ''}
                     </td>

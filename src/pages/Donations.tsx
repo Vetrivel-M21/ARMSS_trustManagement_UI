@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Plus, RefreshCw, Receipt, Banknote, Landmark, Download, Upload, Check, FileText, Gift } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { useBranch } from '../context/BranchContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import { CASH_DENOMINATIONS } from '../constants';
@@ -52,6 +53,7 @@ export const Donations: React.FC = () => {
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const { activeBranchId } = useBranch();
   const [donations, setDonations] = useState<Donation[]>([]);
   const [donors, setDonors] = useState<Donor[]>([]);
   const [schemes, setSchemes] = useState<Scheme[]>([]);
@@ -131,7 +133,7 @@ export const Donations: React.FC = () => {
 
   useEffect(() => {
     loadInitialData();
-  }, []);
+  }, [activeBranchId]);
 
   // Arriving from the Birthday Calendar's "Record Donation" action — pre-fill
   // the donor + occasion and open the modal. Cleared from history state right
@@ -269,7 +271,14 @@ export const Donations: React.FC = () => {
               ) : (
                 donations.map((d) => (
                   <tr key={d.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-emerald-700">{d.donation_number}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-mono text-xs font-semibold text-emerald-700">{d.donation_number}</div>
+                      {d.branch && (
+                        <div className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                          {d.branch.name}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium">{d.donor?.full_name || 'Anonymous'}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{d.business_date ? String(d.business_date).substring(0, 10) : ''}</td>
                     <td className="px-4 py-3">

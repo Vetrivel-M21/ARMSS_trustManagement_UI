@@ -3,21 +3,23 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { useBranch } from '../context/BranchContext';
 import type { User } from '../types';
-import { Plus, RefreshCw, ShieldCheck, UserCog } from 'lucide-react';
+import { Plus, RefreshCw, ShieldCheck, UserCog, Building2 } from 'lucide-react';
 import { isRequired, isValidEmail, isMinLength, hasErrors } from '../utils/validation';
 
 export const UserManagement: React.FC = () => {
   const toast = useToast();
+  const { branches } = useBranch();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
 
   const [formData, setFormData] = useState({
-    username: '', full_name: '', email: '', password: '', role: 'STAFF' as 'STAFF' | 'ADMIN',
+    username: '', full_name: '', email: '', password: '', role: 'STAFF' as 'STAFF' | 'ADMIN', branch_id: 1,
   });
-  const [editData, setEditData] = useState({ full_name: '', email: '', role: 'STAFF' as 'STAFF' | 'ADMIN', is_active: true, password: '' });
+  const [editData, setEditData] = useState({ full_name: '', email: '', role: 'STAFF' as 'STAFF' | 'ADMIN', branch_id: 1, is_active: true, password: '' });
   const [createErrors, setCreateErrors] = useState<Record<string, string | undefined>>({});
   const [editErrors, setEditErrors] = useState<Record<string, string | undefined>>({});
   const [creating, setCreating] = useState(false);
@@ -55,7 +57,7 @@ export const UserManagement: React.FC = () => {
     setCreating(false);
     if (res.success) {
       setShowAddModal(false);
-      setFormData({ username: '', full_name: '', email: '', password: '', role: 'STAFF' });
+      setFormData({ username: '', full_name: '', email: '', password: '', role: 'STAFF', branch_id: branches[0]?.id ?? 1 });
       setCreateErrors({});
       toast.success('User account created.');
       loadUsers();
@@ -66,7 +68,14 @@ export const UserManagement: React.FC = () => {
 
   const openEdit = (u: User) => {
     setEditTarget(u);
-    setEditData({ full_name: u.full_name, email: u.email, role: u.role, is_active: u.is_active ?? true, password: '' });
+    setEditData({
+      full_name: u.full_name,
+      email: u.email,
+      role: u.role,
+      branch_id: u.branch_id || (branches[0]?.id ?? 1),
+      is_active: u.is_active ?? true,
+      password: '',
+    });
     setEditErrors({});
   };
 
@@ -84,7 +93,11 @@ export const UserManagement: React.FC = () => {
     }
 
     const payload: Record<string, unknown> = {
-      full_name: editData.full_name, email: editData.email, role: editData.role, is_active: editData.is_active,
+      full_name: editData.full_name,
+      email: editData.email,
+      role: editData.role,
+      branch_id: editData.branch_id,
+      is_active: editData.is_active,
     };
     if (editData.password) payload.password = editData.password;
 
@@ -125,6 +138,7 @@ export const UserManagement: React.FC = () => {
               <tr>
                 <th className="px-4 py-3">Username</th>
                 <th className="px-4 py-3">Full Name</th>
+                <th className="px-4 py-3">Assigned Branch</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
@@ -133,12 +147,18 @@ export const UserManagement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
               {users.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">{isLoading ? 'Loading users...' : 'No users found'}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-sm">{isLoading ? 'Loading users...' : 'No users found'}</td></tr>
               ) : (
                 users.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-700">{u.username}</td>
                     <td className="px-4 py-3 font-medium">{u.full_name}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-emerald-600" />
+                        {u.branch?.name || u.branch_name || 'Main Branch'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{u.email}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 ${u.role === 'ADMIN' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
@@ -195,6 +215,21 @@ export const UserManagement: React.FC = () => {
                   {createErrors.password && <p className="text-xs text-rose-600 font-medium mt-1">{createErrors.password}</p>}
                 </div>
                 <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned Branch *</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
+                    value={formData.branch_id}
+                    onChange={(e) => setFormData({ ...formData, branch_id: Number(e.target.value) })}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.branch_code})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500 mt-0.5">User will manage vouchers, expenses & donations for this branch</p>
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Role *</label>
                   <select className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as 'STAFF' | 'ADMIN' })}>
@@ -230,6 +265,20 @@ export const UserManagement: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned Branch</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
+                    value={editData.branch_id}
+                    onChange={(e) => setEditData({ ...editData, branch_id: Number(e.target.value) })}
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.branch_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
                   <select className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                     value={editData.role} onChange={(e) => setEditData({ ...editData, role: e.target.value as 'STAFF' | 'ADMIN' })}>
@@ -237,14 +286,14 @@ export const UserManagement: React.FC = () => {
                     <option value="ADMIN">ADMIN</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
-                  <select className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    value={editData.is_active ? '1' : '0'} onChange={(e) => setEditData({ ...editData, is_active: e.target.value === '1' })}>
-                    <option value="1">Active</option>
-                    <option value="0">Deactivated</option>
-                  </select>
-                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+                <select className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                  value={editData.is_active ? '1' : '0'} onChange={(e) => setEditData({ ...editData, is_active: e.target.value === '1' })}>
+                  <option value="1">Active</option>
+                  <option value="0">Deactivated</option>
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Reset Password (optional)</label>

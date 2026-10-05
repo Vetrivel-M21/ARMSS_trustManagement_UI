@@ -14,6 +14,8 @@ import {
   UserCog,
   Calendar,
   ShieldCheck,
+  QrCode,
+  Building2,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -30,6 +32,8 @@ export const Sidebar: React.FC = () => {
     { to: '/vouchers', label: 'Vouchers & Receipts', icon: FileCheck2 },
     { to: '/reports', label: 'Reports & Comparison', icon: BarChart3 },
     { to: '/donor-summary', label: 'Donor Summary', icon: Calendar },
+    ...(isAdmin ? [{ to: '/admin/branches', label: 'Branch & License Admin', icon: Building2 }] : []),
+    ...(isAdmin ? [{ to: '/admin/trust-homes', label: 'Trust Homes (UPI & QR)', icon: QrCode }] : []),
     ...(isAdmin ? [{ to: '/admin/voucher-approvals', label: 'Voucher Approvals', icon: ShieldCheck }] : []),
     ...(isAdmin ? [{ to: '/admin/unlock', label: 'Admin Unlock & Audit', icon: Unlock }] : []),
     ...(isAdmin ? [{ to: '/admin/users', label: 'User Management', icon: UserCog }] : []),

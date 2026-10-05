@@ -1,11 +1,63 @@
 export type Role = 'STAFF' | 'ADMIN';
 
+export interface Branch {
+  id: number;
+  branch_code: string;
+  name: string;
+  tamil_name?: string;
+  license_number?: string;
+  license_issue_date?: string;
+  license_expiry_date?: string;
+  registration_details?: string;
+  incharge_name?: string;
+  phone?: string;
+  email?: string;
+  address_line?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  upi_id?: string;
+  qr_code_path?: string;
+  logo_path?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LicenseAlert {
+  branch_id: number;
+  branch_name: string;
+  branch_code: string;
+  license_number: string;
+  license_expiry_date?: string;
+  days_remaining: number;
+  status: 'EXPIRED' | 'EXPIRING_SOON' | 'ACTIVE';
+}
+
+export interface BranchComparisonItem {
+  branch_id: number;
+  branch_code: string;
+  branch_name: string;
+  total_donations: number;
+  total_expenses: number;
+  cash_inflow: number;
+  cash_outflow: number;
+  net_cash: number;
+  voucher_count: number;
+  license_expiry_date?: string;
+  license_status: string;
+}
+
 export interface User {
   id: number;
   username: string;
   full_name: string;
   email: string;
   role: Role;
+  branch_id?: number;
+  branch_code?: string;
+  branch_name?: string;
+  branch?: Branch;
   is_active?: boolean;
   created_at?: string;
 }
@@ -48,6 +100,20 @@ export interface BankAccount {
   current_balance: number;
   is_active: boolean;
   created_at?: string;
+}
+
+export interface TrustHomeConfig {
+  id: number;
+  home_key: string;
+  home_name: string;
+  home_name_tamil: string;
+  upi_id: string;
+  qr_code_path: string;
+  logo_path?: string;
+  description: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DonorFamilyMember {
@@ -108,6 +174,8 @@ export interface DenominationItem {
 
 export interface Donation {
   id: number;
+  branch_id?: number;
+  branch?: Branch;
   donation_number: string;
   donor_id: number;
   donor?: Donor;
@@ -131,6 +199,8 @@ export interface Donation {
   reference_number?: string;
   attachment_path?: string;
   notes?: string;
+  rejection_reason?: string;
+  trust_home?: string;
   status: string;
   created_by_user?: User;
   created_at?: string;
@@ -138,6 +208,8 @@ export interface Donation {
 
 export interface Expense {
   id: number;
+  branch_id?: number;
+  branch?: Branch;
   expense_number: string;
   business_date: string;
   payment_mode: 'CASH' | 'BANK';
@@ -207,6 +279,8 @@ export type VoucherType =
 
 export interface Voucher {
   id: number;
+  branch_id?: number;
+  branch?: Branch;
   voucher_number: string;
   voucher_type: VoucherType;
   business_date: string;

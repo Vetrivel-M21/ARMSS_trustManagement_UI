@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -8,7 +9,7 @@ import { useToast } from '../context/ToastContext';
 import { uploadFile } from '../utils/upload';
 import { isPositiveAmount, isNonNegativeAmount, isWithinLength, hasErrors } from '../utils/validation';
 import type { BankAccount, BankClosingStatus, BankDaySummary, BankBreakdownRow } from '../types';
-import { Landmark, Plus, RefreshCw, ArrowRightLeft, Lock, Unlock, CheckCircle2, AlertCircle, Upload, Check, Eye, Pencil } from 'lucide-react';
+import { Landmark, Plus, RefreshCw, ArrowRightLeft, Lock, Unlock, CheckCircle2, AlertCircle, Upload, Check, Eye, Pencil, QrCode } from 'lucide-react';
 
 const fmt = (n: number | undefined | null) =>
   '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -348,6 +349,13 @@ export const BankSummary: React.FC = () => {
           <Button variant="outline" size="sm" onClick={() => setShowTransferModal(true)}>
             <ArrowRightLeft className="w-4 h-4 mr-1.5" /> Inter-Bank Transfer
           </Button>
+          {isAdmin && (
+            <Link to="/admin/trust-homes">
+              <Button variant="outline" size="sm" className="bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100">
+                <QrCode className="w-4 h-4 mr-1.5" /> Trust Homes UPI & QR
+              </Button>
+            </Link>
+          )}
           {isAdmin && (
             <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
               <Plus className="w-4 h-4 mr-1.5" /> Add Bank Account

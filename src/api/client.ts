@@ -26,6 +26,11 @@ export async function fetchAPI<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  const activeBranchId = localStorage.getItem('active_branch_id');
+  if (activeBranchId && activeBranchId !== 'ALL' && activeBranchId !== '0') {
+    headers.set('X-Branch-ID', activeBranchId);
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,

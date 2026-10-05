@@ -40,11 +40,11 @@ export const Login: React.FC = () => {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-600 text-white font-bold text-2xl shadow-xl shadow-emerald-900/50 mb-2">
-            TM
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white p-1 shadow-xl shadow-slate-950/50 mb-2 border border-slate-700">
+            <img src="/trust-logo.png" alt="Trust Logo" className="w-full h-full object-contain rounded-full" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-wide">
-            TRUST MANAGEMENT SYSTEM
+            NESAKKARAM TRUST
           </h1>
           <p className="text-sm text-slate-400">
             Internal Office Donation Accounting & Ledger Portal

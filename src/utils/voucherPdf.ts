@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import { assetUrl } from '../api/client';
 import type { Voucher } from '../types';
 
-const TRUST_NAME = 'ARMSS CHARITABLE TRUST';
+const TRUST_NAME = 'NESAKKARAM TRUST';
 const TRUST_ADDRESS = 'No:281/6B2, First Floor, Mullur, Pudukkottai, 622004, Tamil Nadu';
 
 const fmtAmount = (n: number) => 'Rs. ' + n.toLocaleString('en-IN', { minimumFractionDigits: 2 });

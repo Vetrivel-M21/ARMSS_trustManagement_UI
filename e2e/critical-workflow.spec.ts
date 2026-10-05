@@ -15,7 +15,7 @@ async function login(page: import('@playwright/test').Page, username: string, pa
 test.describe('Critical financial workflow (spec section 60)', () => {
   test('login, donor creation, cash donation with denomination validation, and voucher issuance', async ({ page }) => {
     await login(page, 'admin', 'Admin@123');
-    await expect(page.getByText(/TRUST MANAGEMENT SYSTEM/i)).toBeVisible();
+    await expect(page.getByText(/NESAKKARAM TRUST|TRUST MANAGEMENT SYSTEM/i)).toBeVisible();
 
     // Create donor
     await page.goto('/donors');
