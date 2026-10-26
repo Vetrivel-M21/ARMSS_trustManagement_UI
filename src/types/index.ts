@@ -48,19 +48,186 @@ export interface BranchComparisonItem {
   license_status: string;
 }
 
+export type EmploymentStatus = 'ACTIVE' | 'RELIEVED' | 'TEMPORARILY_BLOCKED';
+export type AttendanceStatus = 'FULL_DAY' | 'FIRST_HALF' | 'SECOND_HALF' | 'ABSENT' | 'LEAVE';
+
 export interface User {
   id: number;
+  staff_code?: string;
   username: string;
   full_name: string;
   email: string;
+  phone?: string;
+  gender?: string;
+  education?: string;
+  marital_status?: string;
+  date_of_birth?: string;
+  date_of_joining?: string;
+  date_of_relieving?: string;
+  designation?: string;
+  department?: string;
+  address_line?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  photo_path?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
   role: Role;
+  employment_status?: EmploymentStatus;
+  status_remarks?: string;
   branch_id?: number;
   branch_code?: string;
   branch_name?: string;
   branch?: Branch;
+  permissions?: string[];
   is_active?: boolean;
   created_at?: string;
+  updated_at?: string;
 }
+
+export interface SystemPermission {
+  id: number;
+  code: string;
+  module: string;
+  name: string;
+  description: string;
+  created_at?: string;
+}
+
+export interface AttendanceSheetItem {
+  user_id: number;
+  staff_code: string;
+  full_name: string;
+  designation: string;
+  department: string;
+  photo_path: string;
+  branch_id: number;
+  branch_name: string;
+  attendance_id?: number;
+  status: AttendanceStatus;
+  remarks: string;
+  marked_by_user_name?: string;
+  updated_at?: string;
+}
+
+export type StaffAttendanceItem = AttendanceSheetItem;
+
+export interface AttendanceSheetResponse {
+  business_date: string;
+  total_staff: number;
+  present_full_day: number;
+  present_1st_half: number;
+  present_2nd_half: number;
+  absent_count: number;
+  leave_count: number;
+  items: AttendanceSheetItem[];
+}
+
+export interface BatchAttendanceEntry {
+  user_id: number;
+  status: AttendanceStatus;
+  remarks?: string;
+}
+
+export interface StaffAttendanceHistoryItem {
+  id: number;
+  business_date: string;
+  status: AttendanceStatus;
+  remarks: string;
+  marked_by_name: string;
+  created_at: string;
+}
+
+export interface StaffAttendanceMySummary {
+  total_days: number;
+  full_day_count: number;
+  first_half_count: number;
+  second_half_count: number;
+  absent_count: number;
+  leave_count: number;
+  attendance_percentage: number;
+  history: StaffAttendanceHistoryItem[];
+}
+
+export interface AttendanceReportItem {
+  id: number;
+  business_date: string;
+  user_id: number;
+  staff_code: string;
+  full_name: string;
+  designation: string;
+  department: string;
+  branch_id: number;
+  branch_name: string;
+  status: AttendanceStatus;
+  remarks: string;
+  marked_by_name: string;
+}
+
+export interface EmployeeAttendanceSummaryItem {
+  user_id: number;
+  staff_code: string;
+  full_name: string;
+  phone: string;
+  email: string;
+  designation: string;
+  department: string;
+  branch_id: number;
+  branch_name: string;
+  employment_status: EmploymentStatus | string;
+  total_days: number;
+  full_day_count: number;
+  first_half_count: number;
+  second_half_count: number;
+  leave_count: number;
+  absent_count: number;
+  attendance_percentage: number;
+}
+
+export interface AttendanceReportResponse {
+  start_date: string;
+  end_date: string;
+  total_records: number;
+  full_day_count: number;
+  first_half_count: number;
+  second_half_count: number;
+  absent_count: number;
+  leave_count: number;
+  attendance_percentage: number;
+  items: AttendanceReportItem[];
+  employee_summaries?: EmployeeAttendanceSummaryItem[];
+}
+
+export interface StaffMasterReportItem {
+  id: number;
+  staff_code: string;
+  username: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  gender: string;
+  education: string;
+  marital_status: string;
+  date_of_birth?: string;
+  date_of_joining?: string;
+  date_of_relieving?: string;
+  designation: string;
+  department: string;
+  address: string;
+  address_line?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  emergency_contact: string;
+  role: string;
+  employment_status: EmploymentStatus;
+  status_remarks: string;
+  branch_id: number;
+  branch_name: string;
+  is_active: boolean;
+}
+
 
 export interface AuthState {
   user: User | null;
@@ -470,3 +637,71 @@ export interface BirthdayItem {
   age: number;
   family_member_id?: number;
 }
+
+export interface StaffProfileDetail {
+  id: number;
+  staff_code: string;
+  username: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  gender: string;
+  education: string;
+  marital_status: string;
+  date_of_birth?: string;
+  date_of_joining?: string;
+  date_of_relieving?: string;
+  tenure_formatted: string;
+  designation: string;
+  department: string;
+  address_line: string;
+  city: string;
+  state: string;
+  pincode: string;
+  photo_path: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  role: string;
+  employment_status: EmploymentStatus;
+  status_remarks: string;
+  branch_id: number;
+  branch_name: string;
+  is_active: boolean;
+}
+
+export interface StaffOperationalActivity {
+  vouchers_created_count: number;
+  vouchers_created_total_amount: string;
+  vouchers_approved_count: number;
+  vouchers_approved_total_amount: string;
+  expenses_created_count: number;
+  expenses_created_total_amount: string;
+  expenses_approved_count: number;
+  expenses_approved_total_amount: string;
+  donations_collected_count: number;
+  donations_collected_amount: string;
+}
+
+export interface StaffAttendanceMonthSummary {
+  year: number;
+  month: number;
+  month_name: string;
+  start_date?: string;
+  end_date?: string;
+  total_business_days: number;
+  full_day_count: number;
+  first_half_count: number;
+  second_half_count: number;
+  leave_count: number;
+  absent_count: number;
+  attendance_percentage: number;
+  history: StaffAttendanceHistoryItem[];
+}
+
+export interface StaffAnalyticsReport {
+  profile: StaffProfileDetail;
+  attendance_summary: StaffAttendanceMonthSummary;
+  operational_activity: StaffOperationalActivity;
+  permissions: string[];
+}
+

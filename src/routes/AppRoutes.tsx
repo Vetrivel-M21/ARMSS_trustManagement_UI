@@ -14,7 +14,10 @@ import { VoucherView } from '../pages/VoucherView';
 import { Ledgers } from '../pages/Ledgers';
 import { Reports } from '../pages/Reports';
 import { AdminUnlock } from '../pages/AdminUnlock';
-import { UserManagement } from '../pages/UserManagement';
+import { StaffManagement } from '../pages/StaffManagement';
+import { StaffAttendance } from '../pages/StaffAttendance';
+import { StaffReports } from '../pages/StaffReports';
+import { StaffProfile } from '../pages/StaffProfile';
 import { VoucherApprovals } from '../pages/VoucherApprovals';
 import { TrustHomesConfig } from '../pages/TrustHomesConfig';
 import { Branches } from '../pages/Branches';
@@ -39,12 +42,16 @@ export const AppRoutes: React.FC = () => {
           <Route path="/vouchers/:id" element={<VoucherView />} />
           <Route path="/ledgers" element={<Ledgers />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/profile" element={<StaffProfile />} />
 
           <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
             <Route path="/admin/branches" element={<Branches />} />
             <Route path="/admin/trust-homes" element={<TrustHomesConfig />} />
             <Route path="/admin/unlock" element={<AdminUnlock />} />
-            <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/staff" element={<StaffManagement />} />
+            <Route path="/admin/users" element={<StaffManagement />} />
+            <Route path="/admin/attendance" element={<StaffAttendance />} />
+            <Route path="/admin/staff-reports" element={<StaffReports />} />
             <Route path="/admin/voucher-approvals" element={<VoucherApprovals />} />
             <Route path="/admin/expense-approvals" element={<Navigate to="/admin/voucher-approvals" replace />} />
           </Route>

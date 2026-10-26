@@ -41,7 +41,7 @@ import type {
 
 export const Vouchers: React.FC = () => {
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const { activeBranchId } = useBranch();
 
@@ -353,9 +353,11 @@ export const Vouchers: React.FC = () => {
           <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Create Voucher
-          </Button>
+          {hasPermission('voucher:create') && (
+            <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+              <Plus className="w-4 h-4 mr-1" /> Create Voucher
+            </Button>
+          )}
         </div>
       </div>
 
@@ -760,7 +762,7 @@ export const Vouchers: React.FC = () => {
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         {/* Approval actions for PENDING vouchers */}
-                        {isAdmin && v.status === 'PENDING' && (
+                        {hasPermission('voucher:approve') && v.status === 'PENDING' && (
                           <>
                             <button
                               type="button"
@@ -792,7 +794,7 @@ export const Vouchers: React.FC = () => {
                             <FileText className="w-3.5 h-3.5 mr-1" /> Receipt
                           </Button>
                         </Link>
-                        {isAdmin && v.status !== 'CANCELLED' && v.status !== 'REJECTED' && (
+                        {hasPermission('voucher:cancel') && v.status !== 'CANCELLED' && v.status !== 'REJECTED' && (
                           <button
                             type="button"
                             onClick={() => {

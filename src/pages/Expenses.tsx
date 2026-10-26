@@ -40,8 +40,7 @@ const emptyExpenseForm = () => ({
 
 export const Expenses: React.FC = () => {
   const toast = useToast();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const { hasPermission } = useAuth();
   const { activeBranchId } = useBranch();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -145,7 +144,7 @@ export const Expenses: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {hasPermission('expense:approve') && (
             <Link to="/admin/expense-approvals">
               <Button variant="outline" size="sm" className="relative">
                 <ShieldCheck className="w-4 h-4 mr-1 text-emerald-600" />
@@ -161,9 +160,11 @@ export const Expenses: React.FC = () => {
           <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
-            <Plus className="w-4 h-4 mr-1.5" /> Record Expense
-          </Button>
+          {hasPermission('expense:create') && (
+            <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
+              <Plus className="w-4 h-4 mr-1.5" /> Record Expense
+            </Button>
+          )}
         </div>
       </div>
 

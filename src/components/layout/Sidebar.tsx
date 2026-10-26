@@ -32,11 +32,14 @@ export const Sidebar: React.FC = () => {
     { to: '/vouchers', label: 'Vouchers & Receipts', icon: FileCheck2 },
     { to: '/reports', label: 'Reports & Comparison', icon: BarChart3 },
     { to: '/donor-summary', label: 'Donor Summary', icon: Calendar },
+    { to: '/profile', label: 'My Profile & Attendance', icon: UserCog },
     ...(isAdmin ? [{ to: '/admin/branches', label: 'Branch & License Admin', icon: Building2 }] : []),
     ...(isAdmin ? [{ to: '/admin/trust-homes', label: 'Trust Homes (UPI & QR)', icon: QrCode }] : []),
     ...(isAdmin ? [{ to: '/admin/voucher-approvals', label: 'Voucher Approvals', icon: ShieldCheck }] : []),
     ...(isAdmin ? [{ to: '/admin/unlock', label: 'Admin Unlock & Audit', icon: Unlock }] : []),
-    ...(isAdmin ? [{ to: '/admin/users', label: 'User Management', icon: UserCog }] : []),
+    ...(isAdmin ? [{ to: '/admin/staff', label: 'Staff Management', icon: Users }] : []),
+    ...(isAdmin ? [{ to: '/admin/attendance', label: 'Staff Attendance', icon: Calendar }] : []),
+    ...(isAdmin ? [{ to: '/admin/staff-reports', label: 'Staff & Attendance Reports', icon: FileCheck2 }] : []),
   ];
 
   return (

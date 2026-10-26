@@ -24,6 +24,7 @@ import {
 import { fetchAPI, assetUrl } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useBranch } from '../context/BranchContext';
+import { useAuth } from '../context/AuthContext';
 import type { Voucher, Donation, BankAccount } from '../types';
 
 type ApprovalTab = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
@@ -31,6 +32,7 @@ type SectionMode = 'VOUCHERS' | 'DONATIONS';
 
 export const VoucherApprovals: React.FC = () => {
   const toast = useToast();
+  const { hasPermission } = useAuth();
   const { activeBranch, activeBranchId, isAllBranches } = useBranch();
 
   // Primary Section
@@ -641,25 +643,31 @@ export const VoucherApprovals: React.FC = () => {
                         {/* Action Buttons */}
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenApproveDonation(d)}
-                              className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm flex items-center gap-1 transition-all"
-                              title="Verify against bank and approve receipt"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Verify & Approve
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRejectingDonation(d);
-                                setDonationRejectionReason('');
-                              }}
-                              className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1 transition-all"
-                              title="Reject invalid transaction"
-                            >
-                              <XCircle className="w-3.5 h-3.5" /> Reject
-                            </button>
+                            {hasPermission('donation:approve') ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenApproveDonation(d)}
+                                  className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm flex items-center gap-1 transition-all"
+                                  title="Verify against bank and approve receipt"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Verify & Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectingDonation(d);
+                                    setDonationRejectionReason('');
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1 transition-all"
+                                  title="Reject invalid transaction"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" /> Reject
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Pending Verification</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -921,27 +929,31 @@ export const VoucherApprovals: React.FC = () => {
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             {v.status === 'PENDING' ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => setApprovingVoucher(v)}
-                                  className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm flex items-center gap-1 transition-all"
-                                  title="Approve & Post to Ledger"
-                                >
-                                  <Check className="w-3.5 h-3.5" /> Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRejectingVoucher(v);
-                                    setRejectionReason('');
-                                  }}
-                                  className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1 transition-all"
-                                  title="Reject with Reason"
-                                >
-                                  <XCircle className="w-3.5 h-3.5" /> Reject
-                                </button>
-                              </>
+                              hasPermission('voucher:approve') ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setApprovingVoucher(v)}
+                                    className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm flex items-center gap-1 transition-all"
+                                    title="Approve & Post to Ledger"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRejectingVoucher(v);
+                                      setRejectionReason('');
+                                    }}
+                                    className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1 transition-all"
+                                    title="Reject with Reason"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" /> Reject
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-xs text-slate-400 italic">Pending Approval</span>
+                              )
                             ) : (
                               <Link to={`/vouchers/${v.id}`}>
                                 <Button variant="outline" size="sm" className="text-xs py-1 h-auto">

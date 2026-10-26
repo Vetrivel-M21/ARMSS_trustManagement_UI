@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, RefreshCw, Receipt, Banknote, Landmark, Download, Upload, Check, FileText, Gift } from 'lucide-react';
+import { Plus, RefreshCw, Receipt, Banknote, Landmark, Download, Upload, Check, FileText, Gift, Smartphone, Building2 } from 'lucide-react';
 import { fetchAPI } from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useBranch } from '../context/BranchContext';
+import { useAuth } from '../context/AuthContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import { uploadFile } from '../utils/upload';
 import { CASH_DENOMINATIONS } from '../constants';
@@ -53,6 +54,7 @@ export const Donations: React.FC = () => {
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const { activeBranchId } = useBranch();
   const [donations, setDonations] = useState<Donation[]>([]);
   const [donors, setDonors] = useState<Donor[]>([]);
@@ -62,6 +64,17 @@ export const Donations: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeVoucher, setActiveVoucher] = useState<Voucher | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'MOBILE_APP' | 'OFFICE'>('ALL');
+
+  const mobileCount = donations.filter((d) => d.source === 'MOBILE_APP').length;
+  const officeCount = donations.filter((d) => d.source !== 'MOBILE_APP').length;
+
+  const filteredDonations = donations.filter((d) => {
+    if (sourceFilter === 'MOBILE_APP') return d.source === 'MOBILE_APP';
+    if (sourceFilter === 'OFFICE') return d.source !== 'MOBILE_APP';
+    return true;
+  });
 
   const [formData, setFormData] = useState(emptyDonationForm());
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
@@ -233,19 +246,71 @@ export const Donations: React.FC = () => {
           <Button variant="outline" size="sm" onClick={loadInitialData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setFormData(emptyDonationForm());
-              setPurposeTouched(false);
-              setErrors({});
-              setShowAddModal(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-1.5" /> Record New Donation
-          </Button>
+          {hasPermission('donation:create') && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setFormData(emptyDonationForm());
+                setPurposeTouched(false);
+                setErrors({});
+                setShowAddModal(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> Record New Donation
+            </Button>
+          )}
         </div>
+      </div>
+
+      {/* Source Filter Tabs — Strictly separates Mobile App Online donations from Counter/Office */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setSourceFilter('ALL')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+            sourceFilter === 'ALL'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          All Donations
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sourceFilter === 'ALL' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+            {donations.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSourceFilter('MOBILE_APP')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+            sourceFilter === 'MOBILE_APP'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200'
+          }`}
+        >
+          <Smartphone className="w-3.5 h-3.5" />
+          Mobile App Online
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sourceFilter === 'MOBILE_APP' ? 'bg-purple-800 text-white' : 'bg-purple-200 text-purple-800'}`}>
+            {mobileCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSourceFilter('OFFICE')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+            sourceFilter === 'OFFICE'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+          }`}
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          Counter &amp; Office
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sourceFilter === 'OFFICE' ? 'bg-emerald-800 text-white' : 'bg-emerald-200 text-emerald-800'}`}>
+            {officeCount}
+          </span>
+        </button>
       </div>
 
       <Card>
@@ -257,19 +322,25 @@ export const Donations: React.FC = () => {
                 <th className="px-4 py-3">Donor Name</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Purpose / Scheme</th>
-                <th className="px-4 py-3">Payment Mode</th>
+                <th className="px-4 py-3">Source &amp; Payment</th>
                 <th className="px-4 py-3 font-mono text-right">Amount (₹)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-800">
-              {donations.length === 0 ? (
+              {filteredDonations.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
-                    {isLoading ? 'Loading donations...' : 'No donation records created yet'}
+                    {isLoading
+                      ? 'Loading donations...'
+                      : sourceFilter === 'MOBILE_APP'
+                      ? 'No Mobile App online donations recorded yet'
+                      : sourceFilter === 'OFFICE'
+                      ? 'No Counter/Office donations recorded yet'
+                      : 'No donation records created yet'}
                   </td>
                 </tr>
               ) : (
-                donations.map((d) => (
+                filteredDonations.map((d) => (
                   <tr key={d.id} className="hover:bg-slate-50/80">
                     <td className="px-4 py-3">
                       <div className="font-mono text-xs font-semibold text-emerald-700">{d.donation_number}</div>
@@ -294,10 +365,20 @@ export const Donations: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 ${d.payment_mode === 'CASH' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
-                        {d.payment_mode === 'CASH' ? <Banknote className="w-3 h-3" /> : <Landmark className="w-3 h-3" />}
-                        {d.payment_mode}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-xs px-2 py-0.5 rounded font-semibold inline-flex items-center gap-1 ${d.payment_mode === 'CASH' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                          {d.payment_mode === 'CASH' ? <Banknote className="w-3 h-3" /> : <Landmark className="w-3 h-3" />}
+                          {d.payment_mode}
+                        </span>
+                        {d.source === 'MOBILE_APP' && (
+                          <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <Smartphone className="w-3 h-3" /> Mobile App
+                          </span>
+                        )}
+                      </div>
+                      {d.reference_number && (
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">Ref: {d.reference_number}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">₹{d.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   </tr>

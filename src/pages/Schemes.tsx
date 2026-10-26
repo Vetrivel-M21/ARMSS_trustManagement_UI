@@ -57,6 +57,28 @@ export const Schemes: React.FC = () => {
     setShowAddModal(false);
   };
 
+  const openModal = () => {
+    // Pre-populate with existing Food scheme prices so admin can update without duplicates
+    const initialPrices = emptyPrices();
+    let initialDesc = '';
+    schemes.forEach((s) => {
+      if (s.category === 'FOOD' && (s.food_type === 'VEG' || s.food_type === 'NON_VEG')) {
+        const meal = s.meal_type as 'BREAKFAST' | 'LUNCH' | 'DINNER';
+        if (meal in initialPrices[s.food_type]) {
+          initialPrices[s.food_type][meal] = s.default_amount > 0 ? String(s.default_amount) : '';
+          if (s.description && !initialDesc) {
+            initialDesc = s.description;
+          }
+        }
+      }
+    });
+    setFormData({ description: initialDesc, prices: initialPrices });
+    setCellErrors({});
+    setDescriptionError(undefined);
+    setOtherRows([]);
+    setShowAddModal(true);
+  };
+
   // Update a field in a specific other-row
   const updateRow = (id: number, field: 'name' | 'amount', value: string) => {
     setOtherRows((prev) =>
@@ -163,7 +185,7 @@ export const Schemes: React.FC = () => {
     setSubmitting(false);
 
     if (createdCount > 0) {
-      toast.success(`Created ${createdCount} scheme${createdCount === 1 ? '' : 's'}.`);
+      toast.success(`Saved and updated ${createdCount} scheme rate${createdCount === 1 ? '' : 's'}.`);
       resetModal();
       loadSchemes();
     } else if (!failed) {
@@ -196,8 +218,8 @@ export const Schemes: React.FC = () => {
           <Button variant="outline" size="sm" onClick={loadSchemes} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
-            <Plus className="w-4 h-4 mr-1.5" /> Create New Scheme
+          <Button variant="primary" size="sm" onClick={openModal}>
+            <Plus className="w-4 h-4 mr-1.5" /> Configure / Update Schemes
           </Button>
         </div>
       </div>
@@ -407,7 +429,7 @@ export const Schemes: React.FC = () => {
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <Button type="button" variant="outline" onClick={resetModal}>Cancel</Button>
                 <Button type="submit" variant="primary" isLoading={submitting} disabled={submitting}>
-                  Save Scheme
+                  Save / Update Rates
                 </Button>
               </div>
             </form>

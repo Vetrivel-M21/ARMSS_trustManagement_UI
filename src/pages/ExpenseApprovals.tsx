@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { fetchAPI, assetUrl } from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { downloadVoucherPdf } from '../utils/voucherPdf';
 import type { Expense, Voucher } from '../types';
 
@@ -28,6 +29,7 @@ type ApprovalTab = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
 
 export const ExpenseApprovals: React.FC = () => {
   const toast = useToast();
+  const { hasPermission } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ApprovalTab>('PENDING');
@@ -425,25 +427,29 @@ export const ExpenseApprovals: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       {e.status === 'PENDING' && (
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setApprovingExpense(e)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 transition-colors shadow-xs"
-                          >
-                            <Check className="w-3.5 h-3.5" /> Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRejectingExpense(e);
-                              setRejectionReason('');
-                            }}
-                            className="border border-rose-300 text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 transition-colors"
-                          >
-                            <XCircle className="w-3.5 h-3.5" /> Reject
-                          </button>
-                        </div>
+                        hasPermission('expense:approve') ? (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setApprovingExpense(e)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 transition-colors shadow-xs"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectingExpense(e);
+                                setRejectionReason('');
+                              }}
+                              className="border border-rose-300 text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 transition-colors"
+                            >
+                              <XCircle className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Pending Approval</span>
+                        )
                       )}
 
                       {(e.status === 'APPROVED' || e.status === 'ACTIVE') && (

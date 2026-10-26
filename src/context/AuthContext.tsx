@@ -5,6 +5,8 @@ import { fetchAPI } from '../api/client';
 interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void;
   logout: () => void;
+  hasPermission: (permissionCode: string) => boolean;
+  hasAnyPermission: (permissionCodes: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -76,8 +78,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const hasPermission = (permissionCode: string): boolean => {
+    if (!state.user) return false;
+    if (state.user.role === 'ADMIN') return true;
+    const perms = Array.isArray(state.user.permissions) ? state.user.permissions : [];
+    return perms.includes(permissionCode);
+  };
+
+  const hasAnyPermission = (permissionCodes: string[]): boolean => {
+    if (!state.user) return false;
+    if (state.user.role === 'ADMIN') return true;
+    const perms = Array.isArray(state.user.permissions) ? state.user.permissions : [];
+    return permissionCodes.some((code) => perms.includes(code));
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{ ...state, login, logout, hasPermission, hasAnyPermission }}>
       {children}
     </AuthContext.Provider>
   );

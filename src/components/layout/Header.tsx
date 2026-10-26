@@ -1,7 +1,9 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useBranch } from '../../context/BranchContext';
-import { LogOut, Clock, Menu, Building2, AlertTriangle } from 'lucide-react';
+import { assetUrl } from '../../api/client';
+import { LogOut, Clock, Menu, Building2, AlertTriangle, UserCircle } from 'lucide-react';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -90,12 +92,27 @@ export const Header: React.FC<HeaderProps> = ({ sidebarOpen, onToggleSidebar }) 
         </div>
 
         <div className="flex items-center gap-3 border-l border-slate-700 pl-4">
-          <div className="flex flex-col text-right">
-            <span className="text-sm font-semibold text-slate-200">{user?.full_name}</span>
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/60 self-end">
-              {user?.role}
-            </span>
-          </div>
+          <Link
+            to="/profile"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity p-1 rounded-lg"
+            title="View My Profile & Attendance"
+          >
+            {user?.photo_path ? (
+              <img
+                src={assetUrl(user.photo_path)}
+                alt={user.full_name}
+                className="w-8 h-8 rounded-full object-cover border border-emerald-500"
+              />
+            ) : (
+              <UserCircle className="w-7 h-7 text-emerald-400" />
+            )}
+            <div className="flex flex-col text-right">
+              <span className="text-sm font-semibold text-slate-200">{user?.full_name}</span>
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/60 self-end">
+                {user?.role}
+              </span>
+            </div>
+          </Link>
 
           <button
             onClick={logout}
