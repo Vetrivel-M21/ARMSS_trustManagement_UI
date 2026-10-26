@@ -239,7 +239,7 @@ export const VoucherApprovals: React.FC = () => {
     });
 
     if (res.success) {
-      toast.success(`Donation ${approvingDonation.donation_number} approved! 80G receipt unlocked for donor.`);
+      toast.success(`Donation ${approvingDonation.donation_number} approved! Official receipt unlocked for donor.`);
       setApprovingDonation(null);
       loadPendingDonations();
       loadVouchers(); // Refresh vouchers as well
@@ -424,7 +424,7 @@ export const VoucherApprovals: React.FC = () => {
                 Donors scanning branch QR codes or paying via UPI in the Mobile App have their transactions recorded as{' '}
                 <span className="font-semibold underline">Pending Verification</span>. Staff or Admin must verify the
                 bank reference (UTR) against the branch bank statement before approving. Upon approval, the credit is
-                booked in the ledger and the official 80G receipt is unlocked for the donor to download.
+                booked in the ledger and the official receipt is unlocked for the donor to download.
               </p>
             </div>
           </div>
@@ -473,7 +473,7 @@ export const VoucherApprovals: React.FC = () => {
                   <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider">
                     Receipt Issuance Mode
                   </p>
-                  <h3 className="text-lg font-bold text-blue-950 mt-1">Section 80G Certified</h3>
+                  <h3 className="text-lg font-bold text-blue-950 mt-1">Official Trust Certified</h3>
                   <p className="text-xs text-blue-700 mt-0.5">
                     Automated voucher receipt & notification
                   </p>
@@ -1096,9 +1096,9 @@ export const VoucherApprovals: React.FC = () => {
               </p>
               <ul className="list-disc list-inside space-y-0.5 text-emerald-800">
                 <li>Double-entry credit transaction recorded in the chosen bank account.</li>
-                <li>Official Section 80G Receipt Voucher issued.</li>
+                <li>Official Receipt Voucher issued.</li>
                 <li>
-                  <strong>Donor Mobile App:</strong> Official 80G Receipt is unlocked for instant download.
+                  <strong>Donor Mobile App:</strong> Official Receipt is unlocked for instant download.
                 </li>
               </ul>
             </div>
